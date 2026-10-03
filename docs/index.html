@@ -25,67 +25,67 @@
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
-    margin: 0; color: var(--text); font: 16px/1.6 Inter, system-ui, sans-serif;
+    margin: 0; color: var(--text); font: 15px/1.5 Inter, system-ui, sans-serif;
     background: var(--surface);
   }
   a { color: inherit; }
-  main { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
-  nav { display: flex; align-items: center; gap: 10px; padding: 20px 0; font-weight: 700; }
-  nav img { width: 32px; height: 32px; border-radius: 9px; }
+  main { max-width: 920px; margin: 0 auto; padding: 0 16px; }
+  nav { display: flex; align-items: center; gap: 10px; padding: 14px 0; font-weight: 700; }
+  nav img { width: 28px; height: 28px; border-radius: 8px; }
   nav a.gh { margin-left: auto; font-weight: 500; font-size: 14px; color: var(--muted); text-decoration: none; }
   nav a.gh:hover { color: var(--text); }
 
   .glass {
-    background: var(--card); border: 1px solid var(--card-border); border-radius: 22px;
+    background: var(--card); border: 1px solid var(--card-border); border-radius: 18px;
   }
 
-  .hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; padding: 56px 0 72px; }
+  .hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 32px; align-items: center; padding: 24px 0 40px; }
   .badge {
-    display: inline-flex; gap: 8px; align-items: center; padding: 6px 14px; border-radius: 999px;
-    font-size: 13px; font-weight: 600; color: var(--gold); border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent);
+    display: inline-flex; gap: 8px; align-items: center; padding: 4px 12px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; color: var(--gold); border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent);
     background: color-mix(in srgb, var(--gold) 10%, transparent);
   }
-  h1 { font-size: clamp(40px, 7vw, 64px); line-height: 1.05; margin: 20px 0 16px; font-weight: 800; letter-spacing: -.02em; }
+  h1 { font-size: clamp(32px, 5vw, 44px); line-height: 1.1; margin: 12px 0 10px; font-weight: 800; letter-spacing: -.02em; }
   h1 span { color: var(--gold); }
-  .lead { font-size: 18px; color: var(--muted); margin: 0 0 32px; max-width: 34em; }
-  .actions { display: flex; flex-wrap: wrap; gap: 12px; }
+  .lead { font-size: 16px; color: var(--muted); margin: 0 0 20px; max-width: 34em; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; }
   .btn {
-    display: inline-flex; align-items: center; gap: 10px; padding: 14px 22px; border-radius: 999px;
+    display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 999px;
     font-weight: 600; text-decoration: none; transition: transform .15s;
   }
-  .btn svg { width: 20px; height: 20px; fill: currentColor; }
+  .btn svg { width: 18px; height: 18px; fill: currentColor; }
   .btn.primary { background: var(--gold); color: var(--on-gold); }
   .btn.secondary { background: var(--card); border: 1px solid var(--card-border); }
   .btn:hover { transform: translateY(-2px); }
-  .fine { margin-top: 16px; font-size: 13px; color: var(--muted); }
+  .fine { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
 
   /* Preview: a copy of the app's Wishes card (pity_meter). */
-  .preview { padding: 24px; display: grid; gap: 18px; }
+  .preview { padding: 18px; display: grid; gap: 12px; }
   .preview-head { display: flex; align-items: center; gap: 10px; font-weight: 600; }
-  .preview-head img { width: 40px; height: 40px; border-radius: 12px; }
+  .preview-head img { width: 32px; height: 32px; border-radius: 10px; }
   .preview-head small { display: block; font-weight: 400; color: var(--muted); font-size: 13px; }
-  .meter { display: grid; gap: 6px; font-size: 14px; }
+  .meter { display: grid; gap: 4px; font-size: 13px; }
   .meter div:first-child { display: flex; justify-content: space-between; }
   .meter b { font-weight: 600; }
-  .track { height: 8px; border-radius: 4px; background: var(--track); overflow: hidden; }
+  .track { height: 6px; border-radius: 4px; background: var(--track); overflow: hidden; }
   .track i { display: block; height: 100%; border-radius: 4px; }
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .stat { padding: 12px; border-radius: 14px; background: var(--card); text-align: center; }
-  .stat b { display: block; font-size: 22px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat { padding: 8px; border-radius: 12px; background: var(--card); text-align: center; }
+  .stat b { display: block; font-size: 18px; }
   .stat span { font-size: 12px; color: var(--muted); }
 
-  h2 { font-size: 28px; margin: 0 0 24px; letter-spacing: -.01em; }
-  section { padding-bottom: 72px; }
-  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
-  .feature { padding: 22px; }
+  h2 { font-size: 20px; margin: 0 0 12px; letter-spacing: -.01em; }
+  section { padding-bottom: 32px; }
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+  .feature { padding: 14px 16px; display: grid; grid-template-columns: auto 1fr; column-gap: 12px; }
   .feature .ico {
-    width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 20px;
-    background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); margin-bottom: 14px;
+    grid-row: span 2; width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; font-size: 16px;
+    background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c);
   }
-  .feature h3 { margin: 0 0 4px; font-size: 16px; }
-  .feature p { margin: 0; font-size: 14px; color: var(--muted); }
+  .feature h3 { margin: 0; font-size: 15px; }
+  .feature p { margin: 0; font-size: 13px; color: var(--muted); }
 
-  .source { padding: 24px; display: grid; gap: 12px; min-width: 0; }
+  .source { padding: 16px; display: grid; gap: 10px; min-width: 0; }
   .source p { margin: 0; color: var(--muted); font-size: 14px; }
   .cmd { display: flex; gap: 8px; align-items: center; background: var(--track); border-radius: 12px; padding: 8px 8px 8px 14px; }
   .cmd code { flex: 1; min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
@@ -94,10 +94,10 @@
     background: var(--gold); color: var(--on-gold);
   }
 
-  footer { padding: 32px 0 48px; text-align: center; font-size: 14px; color: var(--muted); border-top: 1px solid var(--card-border); }
+  footer { padding: 20px 0 28px; text-align: center; font-size: 14px; color: var(--muted); border-top: 1px solid var(--card-border); }
 
   @media (max-width: 820px) {
-    .hero { grid-template-columns: 1fr; gap: 40px; padding: 32px 0 56px; }
+    .hero { grid-template-columns: 1fr; gap: 24px; padding: 16px 0 32px; }
     .btn { flex: 1 1 100%; justify-content: center; }
   }
 </style>
