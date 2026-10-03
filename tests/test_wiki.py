@@ -1,6 +1,9 @@
 import datetime
 import json
+import tempfile
 import unittest
+from pathlib import Path
+from unittest import mock
 
 from teyvat import db, gui, wiki, wish
 
@@ -136,6 +139,19 @@ class TestHelpers(unittest.TestCase):
                  "time": "2024-01-01 00:00:00"} for i in range(1, 6)]
         s = wish.pool_stats(rows, 90)
         self.assertEqual([(f["id"], f["rank"]) for f in s["four_stars"] + s["five_stars"]], [("3", 4), ("5", 5)])
+
+
+class TestImageCache(unittest.TestCase):
+    def test_downloaded_once_then_served_from_disk(self):
+        calls = []
+        with tempfile.TemporaryDirectory() as tmp,                 mock.patch.object(wiki, "_image_dir", lambda: Path(tmp)),                 mock.patch.object(wiki, "_get", lambda url: calls.append(url) or b"png"):
+            url = "https://example.com/a/icon.png"
+            self.assertEqual(wiki.image(url), url)  # not cached: Flutter loads the URL
+            wiki.cache_images([url, url, None])
+            wiki.cache_images([url])
+            self.assertEqual(calls, [url])
+            self.assertEqual(Path(wiki.image(url)).read_bytes(), b"png")
+            self.assertTrue(wiki.image(url).endswith(".png"))
 
 
 if __name__ == "__main__":

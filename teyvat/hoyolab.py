@@ -1,12 +1,16 @@
 """HoYoLAB / HoYoverse HTTP calls. Global (os_*) servers only."""
+import base64
 import hashlib
+import http.cookies
 import json
 import random
+import secrets
 import ssl
 import string
 import time
 import urllib.parse
 import urllib.request
+import uuid
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
@@ -21,6 +25,18 @@ CHARACTER_DETAIL_URL = "https://bbs-api-os.hoyolab.com/game_record/genshin/api/c
 # Battle Chronicle wants the "DS" header the hoyolab.com web page signs its requests with.
 DS_SALT = "6s25p5ox5y14umn1p61aqyyvbvvl3lrt"
 REDEEM_URL = "https://sg-hk4e-api.hoyoverse.com/common/apicdkey/api/webExchangeCdkeyHyl"
+# Email/password login, the call account.hoyolab.com makes. Used where no login window exists (phones).
+LOGIN_URL = "https://sg-public-api.hoyolab.com/account/ma-passport/api/webLoginByPassword"
+LOGIN_HEADERS = {"x-rpc-app_id": "c9oqaq3s3gu8", "x-rpc-client_type": "4",
+                 "Origin": "https://account.hoyolab.com", "Referer": "https://account.hoyolab.com/"}
+# RSA public key (2048-bit SubjectPublicKeyInfo) the login page encrypts the account and password with.
+LOGIN_KEY = ("MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4PMS2JVMwBsOIrYWRluYwEiFZL7Aphtm9z5Eu/anzJ09nB00uhW+"
+             "ScrDWFECPwpQto/GlOJYCUwVM/raQpAj/xvcjK5tNVzzK94mhk+j9RiQ+aWHaTXmOgurhxSp3YbwlRDvOgcq5yPiTz0+kSeK"
+             "ZJcGeJ95bvJ+hJ/UMP0Zx2qB5PElZmiKvfiNqVUk8A8oxLJdBB5eCpqWV6CUqDKQKSQP4sM0mZvQ1Sr4UcACVcYgYnCbTZMW"
+             "hJTWkrNXqI8TMomekgny3y+d6NX/cFa66jozFIF4HCX5aW8bp8C8vq2tFvFbleQ/Q3CU56EWWKMrOcpmFtRmC18s9biZBVR/"
+             "8QIDAQAB")
+RETCODE_CAPTCHA = -3101
+DEVICE_ID = str(uuid.uuid4())  # one per run, so a captcha retry comes from the same "device"
 
 # Built apps (flet build, Android, iOS) ship no system CA bundle, so every HTTPS call would fail
 # with CERTIFICATE_VERIFY_FAILED; certifi comes with flet (via httpx).
@@ -60,6 +76,48 @@ def request(url, *, cookies=None, params=None, body=None, referer=None, headers=
     if payload.get("retcode") != 0:
         raise ApiError(payload.get("retcode"), payload.get("message", "unknown error"))
     return payload
+
+
+def rsa_encrypt(text) -> str:
+    """PKCS#1 v1.5 encryption with LOGIN_KEY, base64, like the login page (stdlib, no crypto package)."""
+    der = base64.b64decode(LOGIN_KEY)
+    n = int.from_bytes(der[33:289], "big")  # modulus; the key ends with exponent 65537
+    msg = text.encode()
+    pad = bytes(secrets.randbelow(255) + 1 for _ in range(256 - 3 - len(msg)))  # non-zero random bytes
+    m = int.from_bytes(b"\x00\x02" + pad + b"\x00" + msg, "big")
+    return base64.b64encode(pow(m, 65537, n).to_bytes(256, "big")).decode()
+
+
+class CaptchaRequired(ApiError):
+    """HoYoLAB wants a Geetest v3 captcha first. `gt`/`challenge` start it; pass the solved
+    getValidate() dict to login() as `captcha`."""
+    def __init__(self, aigis):
+        super().__init__(RETCODE_CAPTCHA, "HoYoLAB asked for a captcha")
+        self.session_id = aigis["session_id"]
+        self.gt, self.challenge = (json.loads(aigis["data"])[k] for k in ("gt", "challenge"))
+
+
+def login(account, password, captcha=None) -> dict:
+    """Sign in with a HoYoLAB email/username and password. Returns the login cookies from Set-Cookie.
+    The password goes only to HoYoLAB (RSA-encrypted) and is never stored. Raises CaptchaRequired
+    when HoYoLAB wants a captcha; call again with captcha=(CaptchaRequired, solved getValidate() dict)."""
+    body = {"account": rsa_encrypt(account.strip()), "password": rsa_encrypt(password), "token_type": 6}
+    headers = {"User-Agent": UA, "Content-Type": "application/json", "x-rpc-device_id": DEVICE_ID, **LOGIN_HEADERS}
+    if captcha:
+        need, solved = captcha
+        headers["x-rpc-aigis"] = f"{need.session_id};{base64.b64encode(json.dumps(solved).encode()).decode()}"
+    req = urllib.request.Request(LOGIN_URL, data=json.dumps(body).encode(), headers=headers)
+    with urllib.request.urlopen(req, timeout=20, context=SSL_CONTEXT) as resp:
+        payload = json.load(resp)
+        jar = http.cookies.SimpleCookie()
+        for header in resp.headers.get_all("Set-Cookie") or []:
+            jar.load(header)
+        aigis = resp.headers.get("x-rpc-aigis")
+    if payload.get("retcode") == RETCODE_CAPTCHA and aigis:
+        raise CaptchaRequired(json.loads(aigis))
+    if payload.get("retcode") != 0:
+        raise ApiError(payload.get("retcode"), payload.get("message", "unknown error"))
+    return {k: m.value for k, m in jar.items()}
 
 
 def checkin(cookies) -> str:

@@ -1,9 +1,11 @@
 """Teyvault GUI. One Flet app for Windows, Android and iOS, built on the same core as the CLI."""
+import base64
 import datetime
 import importlib.metadata
 import importlib.util
 import json
 import re
+import threading
 from importlib import resources
 from pathlib import Path
 
@@ -70,6 +72,21 @@ COOKIE_HELP = (
     "3. Copy ltoken_v2, ltuid_v2 (hoyolab.com) and cookie_token_v2, account_id_v2 (hoyoverse.com).\n"
     "4. Paste them below as: ltoken_v2=...; ltuid_v2=...; cookie_token_v2=...; account_id_v2=..."
 )
+# HoYoLAB's Geetest v3 captcha for the phone login, in a WebView. The solved result comes back as a
+# console message (flet-webview's only page -> Python channel on Android/iOS).
+CAPTCHA_HTML = """<!doctype html><html><head><meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://static.geetest.com/static/js/gt.0.5.0.js"></script></head>
+<body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font:15px sans-serif;
+color:#888"><div id="msg">Loading captcha...</div><script>
+initGeetest({gt: "__GT__", challenge: "__CHALLENGE__", new_captcha: true, api_server: "api-na.geetest.com", https: true,
+             product: "bind", lang: "en"}, function (c) {
+  c.onReady(function () { document.getElementById("msg").textContent = "Solve the captcha"; c.verify(); });
+  c.onClose(function () { document.getElementById("msg").textContent = "Tap to try again"; document.body.onclick = function () { c.verify(); }; });
+  c.onError(function () { document.getElementById("msg").textContent = "The captcha failed to load."; });
+  c.onSuccess(function () { console.log("geetest:" + JSON.stringify(c.getValidate())); });
+});
+</script></body></html>"""
 # (label, icon, selected icon, one-line "what is this page for")
 SECTIONS = [
     ("Dashboard", ft.Icons.DASHBOARD_OUTLINED, ft.Icons.DASHBOARD_ROUNDED,
@@ -182,10 +199,10 @@ def item_icon(name, item_type, size=36, rarity=5):
     """Character/weapon portrait on its rarity backdrop. HoYoLAB's wiki icon first (it has new releases
     on day one), then paimon.moe's, then the initial."""
     initial = ft.Text(name[:1], size=size / 2.4, weight=ft.FontWeight.BOLD)
-    paimon = ft.Image(src=wish.icon_url(name, item_type), width=size, height=size, error_content=initial)
+    paimon = ft.Image(src=wiki.image(wish.icon_url(name, item_type)), width=size, height=size, error_content=initial)
     src = wiki.icon_for(name)
     return ft.Container(
-        ft.Image(src=src, width=size, height=size, error_content=paimon) if src else paimon,
+        ft.Image(src=wiki.image(src), width=size, height=size, error_content=paimon) if src else paimon,
         width=size, height=size, border_radius=size / 2, alignment=ft.Alignment.CENTER,
         gradient=ft.LinearGradient(begin=ft.Alignment.TOP_CENTER, end=ft.Alignment.BOTTOM_CENTER,
                                    colors=RARITY_BG[rarity]),
@@ -202,7 +219,7 @@ def reward_tile(day, award, claimed, current):
     """One day of the monthly check-in calendar, using HoYoLAB's own reward icon."""
     return ft.Container(ft.Column([
         ft.Icon(ft.Icons.CHECK_CIRCLE_ROUNDED, size=15, color=WON) if claimed else muted(f"Day {day}", size=12),
-        ft.Image(src=award["icon"], width=36, height=36,
+        ft.Image(src=wiki.image(award["icon"]), width=36, height=36,
                  error_content=ft.Icon(ft.Icons.CARD_GIFTCARD_ROUNDED, color=ft.Colors.ON_SURFACE_VARIANT)),
         ft.Text(f"×{award['cnt']:,}", size=12, weight=ft.FontWeight.W_600),
     ], spacing=2, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
@@ -265,16 +282,25 @@ def banner_tile(pool, b, start, end):
         ft.Row(icons, wrap=True, spacing=6, run_spacing=6, vertical_alignment=ft.CrossAxisAlignment.END),
         muted(when, size=12, color=GOLD if start <= now and left.days < 3 else None),
     ], spacing=6), padding=12, border_radius=STYLE["radius"] - 6, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
-        width=330)
+        col={"xs": 12, "md": 6, "xl": 4})
 
 
 def portrait(src, rarity, size, fallback=ft.Icons.PERSON_ROUNDED):
     """Game icon on its rarity backdrop, like the in-game character list."""
-    return ft.Container(ft.Image(src=src, width=size, height=size,
+    return ft.Container(ft.Image(src=wiki.image(src), width=size, height=size,
                                  error_content=ft.Icon(fallback, size=size / 2)),
                         width=size, height=size, border_radius=size / 4, clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
                         gradient=ft.LinearGradient(begin=ft.Alignment.TOP_CENTER, end=ft.Alignment.BOTTOM_CENTER,
                                                    colors=RARITY_BG.get(rarity, ["#4A5068", "#6B7290"])))
+
+
+def skeleton(n=6, tile=None, height=72):
+    """Shimmering placeholders while data loads: n square tiles of `tile` px, or n full-width bars."""
+    box = lambda **kw: ft.Container(bgcolor=ft.Colors.ON_SURFACE, border_radius=max(STYLE["radius"] - 8, 8), **kw)
+    content = (ft.Row([box(width=tile, height=tile) for _ in range(n)], wrap=True, spacing=10, run_spacing=10)
+               if tile else ft.Column([box(height=height) for _ in range(n)], spacing=10, horizontal_alignment=STRETCH))
+    return ft.Shimmer(content, base_color=ft.Colors.with_opacity(0.07, ft.Colors.ON_SURFACE),
+                      highlight_color=ft.Colors.with_opacity(0.18, ft.Colors.ON_SURFACE))
 
 
 def pill(text, color=None):
@@ -367,6 +393,9 @@ def main(page: ft.Page):
     seed = db.get_meta(conn0, "seed", next(iter(SEEDS)))
     mobile = page.platform in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS)
     desktop = not mobile and not page.web
+    # Phones: character/wiki tiles three to a row across the screen (minus 16 px margins and two 10 px gaps);
+    # tablets get more, smaller-than-PC tiles per row.
+    grid_w = min(int(((page.width or 360) - 32 - 20) / 3), 120) if mobile else None
     light = theme == "light" or theme == "system" and page.platform_brightness == ft.Brightness.LIGHT
     if light:
         use_light_palette()
@@ -482,8 +511,11 @@ def main(page: ft.Page):
         """Fill the reward calendar from HoYoLAB (runs on a worker thread)."""
         rewards_card.visible = logged_in()
         if rewards_card.visible:
+            rewards_sub.value, rewards_grid.controls = "", [skeleton(14, tile=66)]
+            page.update()
             try:
                 m = hoyolab.checkin_month(vault.load())
+                wiki.cache_images(a["icon"] for a in m["awards"])
             except Exception as ex:
                 rewards_sub.value, rewards_grid.controls = f"Could not load rewards: {ex}", []
             else:
@@ -542,9 +574,9 @@ def main(page: ft.Page):
     ], spacing=16, horizontal_alignment=STRETCH)
 
     # --- Events tab ---------------------------------------------------------
-    timeline_body = ft.Column([muted("Loading events...")], horizontal_alignment=STRETCH)
-    timeline_card = card(muted("From paimon.moe, in your local time. Hover a bar for its dates, tap it for the "
-                               "HoYoLAB article. Scroll sideways for what's coming."),
+    timeline_body = ft.Column([skeleton(8, height=26)], horizontal_alignment=STRETCH)
+    timeline_card = card(muted(f"From paimon.moe, in your local time. {'Long-press' if mobile else 'Hover'} a bar for "
+                               "its dates, tap it for the HoYoLAB article. Scroll sideways for what's coming."),
                          timeline_body, title="Event timeline", icon=ft.Icons.VIEW_TIMELINE_ROUNDED)
 
     def load_timeline():
@@ -567,8 +599,9 @@ def main(page: ft.Page):
     stats_view = ft.Column(spacing=16, horizontal_alignment=STRETCH)
 
     view = {"ranks": "5", "order": "new"}  # which pulls the history shows, and in what order
-    banners_row = ft.Row(wrap=True, spacing=12, run_spacing=12, vertical_alignment=ft.CrossAxisAlignment.START)
-    banners_card = card(banners_row, title="Current banners", icon=ft.Icons.STARS_ROUNDED, visible=False)
+    banners_row = ft.ResponsiveRow([skeleton(1, height=150)], spacing=12, run_spacing=12,
+                                   vertical_alignment=ft.CrossAxisAlignment.START)
+    banners_card = card(banners_row, title="Current banners", icon=ft.Icons.STARS_ROUNDED)
 
     def load_banners():
         """Worker thread. Hidden if paimon.moe can't be reached and nothing is cached."""
@@ -576,7 +609,11 @@ def main(page: ft.Page):
         try:
             live = wiki.current_banners(wiki.banners(db.connect()), role and role["region"])
         except Exception:
+            banners_card.visible = False
+            page.update()
             return
+        wiki.cache_images(wiki.icon_for(wiki.name_for(x)) for _, b, _, _ in live
+                          for x in b.get("featured", [])[:6] + b.get("featuredRare", [])[:5])
         banners_row.controls = [banner_tile(*t) for t in live]
         banners_card.visible = bool(live)
         page.update()
@@ -818,7 +855,7 @@ def main(page: ft.Page):
         shown = bool(pct) or not kids  # a parent with 0% only groups its sub-areas
         head = ft.Row([
             # some API icon URLs 404 (Natlan, Nod-Krai) or are empty, so both fall back to a glyph
-            ft.Container(ft.Image(src=icon, width=40, height=40, error_content=terrain) if icon else terrain,
+            ft.Container(ft.Image(src=wiki.image(icon), width=40, height=40, error_content=terrain) if icon else terrain,
                          width=52, height=52, border_radius=14, alignment=ft.Alignment.CENTER,
                          bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH),
             ft.Text(w["name"], size=17, weight=ft.FontWeight.W_600, expand=True),
@@ -847,8 +884,11 @@ def main(page: ft.Page):
 
     def load_world(role):
         """Battle Chronicle: exploration per region plus account totals (worker thread)."""
+        world_body.controls = [skeleton(2, height=64), skeleton(3, height=180)]
+        world_body.update()
         try:
             rec = hoyolab.game_record(vault.load(), role)
+            wiki.cache_images(w.get("icon") or w.get("inner_icon") for w in rec["world_explorations"])
         except Exception as ex:
             world_body.controls = [card(muted(f"Could not load exploration: {ex}. Make sure Battle "
                                               "Chronicle is enabled in your HoYoLAB privacy settings."))]
@@ -893,6 +933,12 @@ def main(page: ft.Page):
     chars_grid = ft.Column(spacing=12, horizontal_alignment=STRETCH)
     META_ROLES = ("On-field DPS", "Off-field DPS", "Support")
 
+    def filter_bar(search, dropdowns):
+        if mobile:
+            return ft.Column([search, ft.Row(dropdowns, spacing=8, scroll=ft.ScrollMode.AUTO)], spacing=8,
+                             horizontal_alignment=STRETCH)
+        return ft.Row([search, *dropdowns], wrap=True, spacing=8, run_spacing=8)
+
     def char_filter(label, options, width=150):
         return ft.Dropdown(label=label, value="All", width=width, dense=True, filled=True, border_radius=14,
                            options=[ft.DropdownOption("All")] + [ft.DropdownOption(k, v) for k, v in options],
@@ -912,10 +958,11 @@ def main(page: ft.Page):
                               ("none", "None"), ("element", "Element"), ("weapon", "Weapon"),
                               ("rarity", "Rarity"), ("tier", "Meta tier"), ("role", "Meta role"))],
                           on_select=lambda e: show_chars())
-    f_search = ft.TextField(hint_text="Search characters", prefix_icon=ft.Icons.SEARCH_ROUNDED, width=220, dense=True,
-                            filled=True, border_radius=14, on_change=lambda e: show_chars())
-    chars_filters = ft.Row([f_search, f_element, f_weapon, f_rarity, f_tier, f_role, f_sort, f_group], wrap=True, spacing=8,
-                           run_spacing=8)
+    f_search = ft.TextField(hint_text="Search characters", prefix_icon=ft.Icons.SEARCH_ROUNDED,
+                            width=None if mobile else 220, dense=True, filled=True, border_radius=14,
+                            on_change=lambda e: show_chars())
+    # Phones: full-width search, the eight filters in one row that scrolls sideways instead of a tall stack.
+    chars_filters = filter_bar(f_search, [f_element, f_weapon, f_rarity, f_tier, f_role, f_sort, f_group])
 
     def show_chars():
         """Apply the filter bar to the loaded roster. Tier and role filters match the same rating, so
@@ -972,11 +1019,11 @@ def main(page: ft.Page):
             ft.Text(c["name"], size=14, weight=ft.FontWeight.W_600, no_wrap=True,
                     overflow=ft.TextOverflow.ELLIPSIS, color=ELEMENT_COLORS.get(c["element"])),
             muted(f"Lv {c['level']} · C{c['actived_constellation_num']}", size=12),
-            ft.Row([ft.Image(src=w["icon"], width=20, height=20,
+            ft.Row([ft.Image(src=wiki.image(w["icon"]), width=20, height=20,
                              error_content=ft.Icon(ft.Icons.HARDWARE_ROUNDED, size=16)), muted(f"R{w['affix_level']}", size=12)],
                    spacing=2, tight=True),
         ], spacing=4, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-            width=112, padding=10, border_radius=16, bgcolor=ft.Colors.SURFACE_CONTAINER,
+            width=grid_w or 112, padding=10, border_radius=16, bgcolor=ft.Colors.SURFACE_CONTAINER,
             tooltip=f"{c['name']} · {c['element']} · {w['name']}",
             on_click=lambda e: open_build(c, role))
 
@@ -986,12 +1033,12 @@ def main(page: ft.Page):
         section = lambda t: ft.Text(t, size=14, weight=ft.FontWeight.W_600, color=ft.Colors.PRIMARY)
         color = ELEMENT_COLORS.get(c["element"], GOLD)
         splash = ft.Container(
-            ft.Image(src=c.get("image") or c["icon"], height=230, fit=ft.BoxFit.CONTAIN,
+            ft.Image(src=wiki.image(c.get("image") or c["icon"]), height=230, fit=ft.BoxFit.CONTAIN,
                      error_content=ft.Icon(ft.Icons.PERSON_ROUNDED, size=64)),
             height=240, border_radius=STYLE["radius"], alignment=ft.Alignment.BOTTOM_CENTER,
             gradient=ft.LinearGradient(begin=ft.Alignment.TOP_CENTER, end=ft.Alignment.BOTTOM_CENTER,
                                        colors=[ft.Colors.with_opacity(0.45, color), ft.Colors.with_opacity(0.05, color)]))
-        cons = [ft.Container(ft.Image(src=k["icon"], width=34, height=34,
+        cons = [ft.Container(ft.Image(src=wiki.image(k["icon"]), width=34, height=34,
                                       error_content=ft.Icon(ft.Icons.STAR_ROUNDED, size=20)),
                              width=46, height=46, border_radius=23, alignment=ft.Alignment.CENTER,
                              bgcolor=ft.Colors.with_opacity(0.35, color) if k["is_actived"]
@@ -999,7 +1046,7 @@ def main(page: ft.Page):
                              tooltip=f"C{k['pos']} {k['name']}\n{clean(k['effect'])}")
                 for k in sorted(d.get("constellations", []), key=lambda k: k["pos"])]
         talents = [ft.Container(ft.Column([
-            ft.Image(src=t["icon"], width=34, height=34, error_content=ft.Icon(ft.Icons.BOLT_ROUNDED)),
+            ft.Image(src=wiki.image(t["icon"]), width=34, height=34, error_content=ft.Icon(ft.Icons.BOLT_ROUNDED)),
             ft.Text(str(t["level"]), size=18, weight=ft.FontWeight.BOLD),
             muted(t["name"], size=11, text_align=ft.TextAlign.CENTER, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS),
         ], spacing=2, horizontal_alignment=ft.CrossAxisAlignment.CENTER), expand=True, padding=8,
@@ -1049,8 +1096,8 @@ def main(page: ft.Page):
                          scroll=ft.ScrollMode.AUTO, horizontal_alignment=STRETCH)
 
     def open_build(c, role):
-        body = ft.Container(ft.ProgressRing(), width=None if mobile else 880, height=None if mobile else 600,
-                            alignment=ft.Alignment.CENTER)
+        body = ft.Container(ft.Column([skeleton(1, height=240), skeleton(4, height=56)], spacing=10, tight=True),
+                            width=(page.width or 360) - 72 if mobile else 880, height=None if mobile else 600)
         page.show_dialog(ft.AlertDialog(
             inset_padding=ft.Padding.all(12) if mobile else None,
             title=ft.Row([portrait(c["icon"], c["rarity"], 44), ft.Column([
@@ -1066,7 +1113,10 @@ def main(page: ft.Page):
             try:
                 if c["id"] not in builds:
                     builds[c["id"]] = hoyolab.character_detail(vault.load(), role, c["id"])
-                body.content, body.alignment = build_view(c, *builds[c["id"]]), None
+                    d = builds[c["id"]][0]
+                    wiki.cache_images([c.get("image"), d["weapon"]["icon"]]
+                                      + [x["icon"] for k in ("constellations", "skills", "relics") for x in d.get(k) or []])
+                body.content = build_view(c, *builds[c["id"]])
             except Exception as ex:
                 body.content = muted(f"Could not load build: {ex}")
             body.update()
@@ -1074,8 +1124,11 @@ def main(page: ft.Page):
 
     def load_characters(role):
         """Character roster from Battle Chronicle (worker thread). Builds load per character on click."""
+        chars_body.controls = [skeleton(1, height=48), skeleton(12, tile=grid_w or 112)]
+        chars_body.update()
         try:
             chars = hoyolab.characters(vault.load(), role)
+            wiki.cache_images(u for c in chars for u in (c["icon"], c["weapon"]["icon"]))
         except Exception as ex:
             chars_body.controls = [card(muted(f"Could not load characters: {ex}. Make sure Battle "
                                               "Chronicle is enabled in your HoYoLAB privacy settings."))]
@@ -1093,9 +1146,10 @@ def main(page: ft.Page):
                  "Collectibles": ft.Icons.COLLECTIONS_ROUNDED, "Achievements": ft.Icons.EMOJI_EVENTS_ROUNDED}
     WIKI_PAGE = 60  # NOTE: tiles rendered per "Show more"; switch to a virtualized GridView if it lags
     wiki_state = {"cat": "Characters", "items": [], "limit": WIKI_PAGE, "done": set()}
-    wiki_search = ft.TextField(hint_text="Search", prefix_icon=ft.Icons.SEARCH_ROUNDED, width=260, dense=True,
+    wiki_search = ft.TextField(hint_text="Search", prefix_icon=ft.Icons.SEARCH_ROUNDED, width=None if mobile else 260,
+                               expand=mobile, dense=True,
                                filled=True, border_radius=14, on_change=lambda e: show_wiki(reset=True))
-    wiki_filters = ft.Row(wrap=True, spacing=8, run_spacing=8)
+    wiki_filters = ft.Row(wrap=not mobile, spacing=8, run_spacing=8)
     wiki_sort = ft.Dropdown(label="Sort", value="name", width=150, dense=True, filled=True, border_radius=14,
                             options=[ft.DropdownOption("name", "Name"), ft.DropdownOption("rarity", "Rarity")],
                             on_select=lambda e: show_wiki(reset=True))
@@ -1118,7 +1172,7 @@ def main(page: ft.Page):
                     text_align=ft.TextAlign.CENTER),
             muted("★" * r, size=11, color=GOLD if r == 5 else PURPLE if r == 4 else None, visible=bool(r)),
         ], spacing=4, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-            width=104 if mobile else 120, padding=8, border_radius=STYLE["radius"] - 4, bgcolor=STYLE["card_bg"],
+            width=grid_w or 120, padding=8, border_radius=STYLE["radius"] - 4, bgcolor=STYLE["card_bg"],
             border=STYLE["border"],
             tooltip=e["desc"][:400] or e["name"], url=wiki.WIKI_ENTRY_URL.format(e["id"]))
 
@@ -1171,7 +1225,8 @@ def main(page: ft.Page):
     def load_wiki(refresh=False):
         """Fetch (or read the cache of) the picked category, then rebuild its filter bar. Worker thread."""
         cat = wiki_state["cat"]
-        wiki_count.value, wiki_grid.controls = f"Loading {cat.lower()}...", [ft.ProgressRing()]
+        wiki_count.value = f"Loading {cat.lower()}..."
+        wiki_grid.controls = [skeleton(12, height=56) if cat == "Achievements" else skeleton(18, tile=grid_w or 120)]
         wiki_body.update()
         conn = db.connect()
         try:
@@ -1192,6 +1247,8 @@ def main(page: ft.Page):
             wiki_filters.controls = [wiki_dropdown(wiki.label(k), vs, k) for k, vs in wiki.filters(items).items()]
         wiki_sort.visible = cat not in ("Achievements", "Enemies")
         show_wiki(reset=True)
+        if cat != "Achievements":  # keep the catalogue's pictures for offline use
+            page.run_thread(wiki.cache_images, [e["icon"] for e in items])
         if refresh:
             return f"{cat} updated."
 
@@ -1202,12 +1259,14 @@ def main(page: ft.Page):
 
     wiki_cat = ft.SegmentedButton(selected=["Characters"], show_selected_icon=False, on_change=pick_wiki_cat,
                                   segments=[ft.Segment(k, label=k, icon=i) for k, i in WIKI_CATS.items()])
+    wiki_refresh = ft.IconButton(ft.Icons.REFRESH_ROUNDED, tooltip="Download again",
+                                 on_click=guarded(lambda: load_wiki(refresh=True)))
     wiki_body = ft.Column([
         ft.Row([wiki_cat], scroll=ft.ScrollMode.AUTO),
-        ft.Row([wiki_search, wiki_sort, ft.IconButton(ft.Icons.REFRESH_ROUNDED, tooltip="Download again",
-                                                      on_click=guarded(lambda: load_wiki(refresh=True)))],
-               wrap=True, spacing=8, run_spacing=8),
-        wiki_filters, wiki_count, wiki_grid, ft.Row([wiki_more]),
+        filter_bar(ft.Row([wiki_search, wiki_refresh], spacing=8), [wiki_sort, wiki_filters]) if mobile
+        else ft.Column([ft.Row([wiki_search, wiki_sort, wiki_refresh], wrap=True, spacing=8, run_spacing=8),
+                        wiki_filters], spacing=12),
+        wiki_count, wiki_grid, ft.Row([wiki_more]),
     ], spacing=12, horizontal_alignment=STRETCH)
     wiki_view = ft.Column([page_head(WIKI), wiki_body], spacing=16, horizontal_alignment=STRETCH)
 
@@ -1245,6 +1304,8 @@ def main(page: ft.Page):
         if not logged_in():
             profiles.controls = []
         else:
+            profiles.controls = [skeleton(1, height=104)]
+            profiles.update()
             try:
                 roles = hoyolab.game_roles(vault.load())
                 bound_roles[:] = roles
@@ -1273,6 +1334,43 @@ def main(page: ft.Page):
     def do_signin():
         toast("Log in on the HoYoLAB window. It closes by itself when you are done.")
         return signed_in(weblogin.sign_in())
+
+    def solve_captcha(need):
+        """Show HoYoLAB's captcha in a WebView and block until it is solved (worker thread)."""
+        import flet_webview  # NOTE: its console channel is Android/iOS/macOS only; Windows uses weblogin instead
+        solved, done = {}, threading.Event()
+
+        def on_message(e):
+            if e.message.startswith("geetest:"):
+                solved.update(json.loads(e.message.removeprefix("geetest:")))
+                done.set()
+
+        html = CAPTCHA_HTML.replace("__GT__", need.gt).replace("__CHALLENGE__", need.challenge)
+        view = flet_webview.WebView(url="data:text/html;base64," + base64.b64encode(html.encode()).decode(),
+                                    on_console_message=on_message, expand=True)
+        page.show_dialog(ft.AlertDialog(
+            modal=True, title=ft.Text("Confirm it's you"), inset_padding=ft.Padding.all(12),
+            content=ft.Container(view, width=(page.width or 360) - 72, height=420),
+            actions=[ft.TextButton("Cancel", on_click=lambda e: done.set())]))
+        done.wait(300)
+        page.pop_dialog()
+        if not solved:
+            raise RuntimeError("Sign-in cancelled.")
+        return solved
+
+    def do_password_login():
+        account, password = (login_account.value or "").strip(), login_password.value or ""
+        if not account or not password:
+            return "Enter your HoYoLAB email and password."
+        try:
+            cookies = hoyolab.login(account, password)
+        except hoyolab.CaptchaRequired as need:
+            cookies = hoyolab.login(account, password, (need, solve_captcha(need)))
+        cookies = {k: v for k, v in cookies.items() if k in vault.WANTED}
+        if "ltoken_v2" not in cookies:
+            return "HoYoLAB did not return a login. Try again, or use browser cookies."
+        login_password.value = ""
+        return signed_in(cookies)
 
     def do_cookie_login():
         cookies = vault.parse_cookie_string(cookie_field.value or "")
@@ -1305,14 +1403,24 @@ def main(page: ft.Page):
 
     logout_btn.on_click = confirm_logout
 
+    # PC: the real hoyolab.com page in a window. Phones (no such window): email + password, sent only to
+    # HoYoLAB like its login page does; a captcha, if HoYoLAB asks, opens in a WebView.
+    login_account = ft.TextField(label="Email or username", border_radius=14, filled=True,
+                                 keyboard_type=ft.KeyboardType.EMAIL, prefix_icon=ft.Icons.ALTERNATE_EMAIL_ROUNDED)
+    login_password = ft.TextField(label="Password", password=True, can_reveal_password=True, border_radius=14,
+                                  filled=True, prefix_icon=ft.Icons.LOCK_OUTLINE_ROUNDED,
+                                  on_submit=guarded(do_password_login))
     signin_card = card(
         muted("Opens the official hoyolab.com login. Teyvault never sees your password."),
         ft.Row([ft.FilledButton("Sign in with HoYoLAB", icon=ft.Icons.LOGIN_ROUNDED, on_click=guarded(do_signin))]),
-        title="Sign in", icon=ft.Icons.KEY_ROUNDED)
+        title="Sign in", icon=ft.Icons.KEY_ROUNDED) if has_webview else card(
+        muted("Your HoYoLAB email and password go straight to HoYoLAB, encrypted. Teyvault never stores "
+              "your password."),
+        login_account, login_password,
+        ft.FilledButton("Sign in with HoYoLAB", icon=ft.Icons.LOGIN_ROUNDED, on_click=guarded(do_password_login)),
+        title="Sign in to HoYoLAB", icon=ft.Icons.KEY_ROUNDED)
     cookie_card = card(ft.ExpansionTile(
-        # Without the login window (mobile) cookies are the only way in, so start expanded there.
-        title=ft.Text("Sign in with browser cookies" if not has_webview else "Use browser cookies instead"),
-        expanded=not has_webview, tile_padding=0,
+        title=ft.Text("Use browser cookies instead"), tile_padding=0,
         controls_padding=ft.Padding.only(bottom=8), shape=ft.RoundedRectangleBorder(),
         collapsed_shape=ft.RoundedRectangleBorder(),
         expanded_cross_axis_alignment=ft.CrossAxisAlignment.START,
@@ -1335,7 +1443,7 @@ def main(page: ft.Page):
         account_sub.value = ("Credentials stay on this device." if on
                              else "Sign in to check in, redeem codes and see exploration.")
         logout_btn.visible = on
-        signin_card.visible = not on and has_webview
+        signin_card.visible = not on
         cookie_card.visible = not on
         status_dot.bgcolor = WON if on else LOST
         status_label.value = "Signed in" if on else "Signed out"
@@ -1381,7 +1489,7 @@ def main(page: ft.Page):
         loaded.difference_update({EVENTS, WISHES, WORLD, CHARACTERS})
         ensure_loaded(current["i"])
 
-    account_pick = ft.Dropdown(label="Game account", width=320, dense=True, filled=True, border_radius=14,
+    account_pick = ft.Dropdown(label="Game account", width=min(320, (page.width or 360) - 72) if mobile else 320, dense=True, filled=True, border_radius=14,
                                on_select=set_account)
     account_row = ft.Column([muted("Which account World, Characters and Wishes show first."), account_pick],
                             spacing=8, visible=False)
@@ -1555,7 +1663,9 @@ def main(page: ft.Page):
     on_change = lambda e: select(e.control.selected_index)
 
     if mobile:
-        nav = ft.NavigationBar(on_change=on_change, destinations=[
+        # Icons only (the label is the long-press tooltip), so the bar stays slim.
+        nav = ft.NavigationBar(on_change=on_change, label_behavior=ft.NavigationBarLabelBehavior.ALWAYS_HIDE,
+                               height=64, destinations=[
             ft.NavigationBarDestination(icon=icon, selected_icon=sel, label=label)
             for label, icon, sel, _ in SECTIONS[:ACCOUNT]])
         page.navigation_bar = nav
@@ -1622,6 +1732,9 @@ def main(page: ft.Page):
             refresh_stats()
         except Exception:
             pass  # offline: paimon.moe icons and initials still work
+        # Keep every character/weapon portrait on the device, so wishes and banners show them offline.
+        wiki.cache_images(wiki.icon_urls())
+        refresh_stats()  # redraw the wish history from the local copies
 
     page.run_thread(startup)
 

@@ -3,10 +3,15 @@ paimon.moe's achievement list, event timeline and banners. All public, fetched p
 table. Caches are checked daily, so a new patch shows up without pressing refresh."""
 import ast
 import datetime
+import functools
+import hashlib
 import json
 import re
+import threading
 import time
+import urllib.parse
 import urllib.request
+from pathlib import Path
 
 from teyvat import db, wish
 from teyvat.hoyolab import SSL_CONTEXT, UA, request
@@ -208,3 +213,47 @@ def icon_for(name) -> str | None:
             hit = json.loads(db.get_meta(conn, f"wiki:{menu}") or "null")
             _icons.update({e["name"]: e["icon"] for e in hit["data"]} if hit else {})
     return _icons.get(name)
+
+
+@functools.cache
+def _image_dir() -> Path:
+    return db.default_path().parent / "images"
+
+
+def _image_path(url) -> Path:
+    suffix = Path(urllib.parse.urlsplit(url).path).suffix[:5] or ".img"  # Flutter sniffs the format anyway
+    return _image_dir() / (hashlib.sha1(url.encode()).hexdigest() + suffix)
+
+
+def image(url):
+    """The downloaded copy of a remote image (see cache_images) as a local path, else the URL itself.
+    Flet shows absolute file paths directly, so cached icons need no network (offline, flaky phone data)."""
+    if url:
+        path = _image_path(url)
+        if path.exists():
+            return str(path)
+    return url
+
+
+def cache_images(urls):
+    """Download the images not cached yet, one at a time. Failures (offline, 404) are skipped:
+    the Image's error_content still covers them."""
+    # NOTE: never evicted; a whole catalogue is tens of MB. Add a size cap if phones complain.
+    for url in dict.fromkeys(u for u in urls if u):
+        path = _image_path(url)
+        if path.exists():
+            continue
+        try:
+            data = _get(url)
+        except Exception:
+            continue
+        path.parent.mkdir(parents=True, exist_ok=True)
+        part = path.with_name(f"{path.name}.{threading.get_ident()}.part")  # threads may race on one URL
+        part.write_bytes(data)
+        part.replace(path)
+
+
+def icon_urls() -> list[str]:
+    """Every cached character and weapon icon URL, for prefetching."""
+    icon_for("")
+    return [u for u in _icons.values() if u]
