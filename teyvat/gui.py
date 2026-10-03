@@ -1,7 +1,6 @@
 """Teyvault GUI. One Flet app for Windows, Android and iOS, built on the same core as the CLI."""
 import base64
 import datetime
-import importlib.metadata
 import importlib.util
 import json
 import re
@@ -11,7 +10,7 @@ from pathlib import Path
 
 import flet as ft
 
-from teyvat import db, hoyolab, lansync, vault, weblogin, wiki, wish
+from teyvat import __version__, db, hoyolab, lansync, vault, weblogin, wiki, wish
 
 APP = "Teyvault"
 GOLD, PURPLE, WON, LOST = "#E6C07B", "#B58CF5", "#7BD4A8", "#F08A8A"
@@ -393,9 +392,15 @@ def main(page: ft.Page):
     seed = db.get_meta(conn0, "seed", next(iter(SEEDS)))
     mobile = page.platform in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS)
     desktop = not mobile and not page.web
-    # Phones: character/wiki tiles three to a row across the screen (minus 16 px margins and two 10 px gaps);
-    # tablets get more, smaller-than-PC tiles per row.
-    grid_w = min(int(((page.width or 360) - 32 - 20) / 3), 120) if mobile else None
+    # Phones: character/wiki tiles three to a row (ResponsiveRow columns, so any screen width fits);
+    # landscape phones and tablets get more per row.
+    sized = lambda w: {"col": {"xs": 4, "sm": 3, "md": 2}} if mobile else {"width": w}
+    tile_px = 56 if mobile else 72  # portrait size in character/wiki tiles
+    skel_tile = 96 if mobile else 112
+
+    def tile_grid(tiles):
+        return (ft.ResponsiveRow(tiles, spacing=8, run_spacing=8) if mobile
+                else ft.Row(tiles, wrap=True, spacing=10, run_spacing=10))
     light = theme == "light" or theme == "system" and page.platform_brightness == ft.Brightness.LIGHT
     if light:
         use_light_palette()
@@ -1000,7 +1005,7 @@ def main(page: ft.Page):
         groups = {k: [] for k in order}
         for c in shown:
             groups.setdefault(key(c), []).append(c)
-        grid = lambda cs: ft.Row([char_tile(c, roster["role"]) for c in cs], wrap=True, spacing=10, run_spacing=10)
+        grid = lambda cs: tile_grid([char_tile(c, roster["role"]) for c in cs])
         chars_grid.controls = [ft.Column([
             ft.Row([ft.Text(k, size=16, weight=ft.FontWeight.W_600,
                             color=ELEMENT_COLORS.get(k) or TIER_COLORS.get(k)), muted(str(len(cs)))],
@@ -1013,19 +1018,23 @@ def main(page: ft.Page):
     def char_tile(c, role):
         w = c["weapon"]
         badge = [ft.Container(pill(t, TIER_COLORS[t]), right=-6, top=-6) for t, _ in meta_ratings(c)[:1]]
+        icon = 16 if mobile else 20
+        weapon = ft.Image(src=wiki.image(w["icon"]), width=icon, height=icon,
+                          error_content=ft.Icon(ft.Icons.HARDWARE_ROUNDED, size=icon - 4))
+        lv, refine = f"Lv {c['level']} · C{c['actived_constellation_num']}", f"R{w['affix_level']}"
+        # Phones: level, constellation, weapon and refinement on one line to keep the tile short.
+        info = ([ft.Row([weapon, muted(f"{lv} · {refine}", size=11)], spacing=2, tight=True)] if mobile else
+                [muted(lv, size=12), ft.Row([weapon, muted(refine, size=12)], spacing=2, tight=True)])
         return ft.Container(ft.Column([
-            ft.Stack([portrait(c["icon"], c["rarity"], 72), *badge],
-                     width=72, height=72, clip_behavior=ft.ClipBehavior.NONE),
-            ft.Text(c["name"], size=14, weight=ft.FontWeight.W_600, no_wrap=True,
+            ft.Stack([portrait(c["icon"], c["rarity"], tile_px), *badge],
+                     width=tile_px, height=tile_px, clip_behavior=ft.ClipBehavior.NONE),
+            ft.Text(c["name"], size=12 if mobile else 14, weight=ft.FontWeight.W_600, no_wrap=True,
                     overflow=ft.TextOverflow.ELLIPSIS, color=ELEMENT_COLORS.get(c["element"])),
-            muted(f"Lv {c['level']} · C{c['actived_constellation_num']}", size=12),
-            ft.Row([ft.Image(src=wiki.image(w["icon"]), width=20, height=20,
-                             error_content=ft.Icon(ft.Icons.HARDWARE_ROUNDED, size=16)), muted(f"R{w['affix_level']}", size=12)],
-                   spacing=2, tight=True),
-        ], spacing=4, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-            width=grid_w or 112, padding=10, border_radius=16, bgcolor=ft.Colors.SURFACE_CONTAINER,
-            tooltip=f"{c['name']} · {c['element']} · {w['name']}",
-            on_click=lambda e: open_build(c, role))
+            *info,
+        ], spacing=2 if mobile else 4, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+            padding=6 if mobile else 10, border_radius=16, bgcolor=ft.Colors.SURFACE_CONTAINER,
+            tooltip=None if mobile else f"{c['name']} · {c['element']} · {w['name']}",
+            on_click=lambda e: open_build(c, role), **sized(112))
 
     def build_view(c, d, pm):
         """Two columns on desktop (who they are | what they wear), one on mobile."""
@@ -1124,11 +1133,10 @@ def main(page: ft.Page):
 
     def load_characters(role):
         """Character roster from Battle Chronicle (worker thread). Builds load per character on click."""
-        chars_body.controls = [skeleton(1, height=48), skeleton(12, tile=grid_w or 112)]
+        chars_body.controls = [skeleton(1, height=48), skeleton(12, tile=skel_tile)]
         chars_body.update()
         try:
             chars = hoyolab.characters(vault.load(), role)
-            wiki.cache_images(u for c in chars for u in (c["icon"], c["weapon"]["icon"]))
         except Exception as ex:
             chars_body.controls = [card(muted(f"Could not load characters: {ex}. Make sure Battle "
                                               "Chronicle is enabled in your HoYoLAB privacy settings."))]
@@ -1138,13 +1146,16 @@ def main(page: ft.Page):
         roster.update(chars=chars, role=role)
         chars_body.controls = [chars_filters, chars_count, chars_grid]
         show_chars()
+        # Roster shows right away (icons not cached yet load from the web); keep them for next time.
+        page.run_thread(wiki.cache_images, [u for c in chars for u in (c["icon"], c["weapon"]["icon"])])
 
     # --- Wiki tab -----------------------------------------------------------
     # Public catalogue (HoYoLAB wiki + paimon.moe achievements), cached in SQLite for a week.
     WIKI_CATS = {"Characters": ft.Icons.PEOPLE_ROUNDED, "Weapons": ft.Icons.HARDWARE_ROUNDED,
                  "Artifacts": ft.Icons.DIAMOND_ROUNDED, "Enemies": ft.Icons.PEST_CONTROL_ROUNDED,
                  "Collectibles": ft.Icons.COLLECTIONS_ROUNDED, "Achievements": ft.Icons.EMOJI_EVENTS_ROUNDED}
-    WIKI_PAGE = 60  # NOTE: tiles rendered per "Show more"; switch to a virtualized GridView if it lags
+    # NOTE: tiles rendered per "Show more" (fewer on phones); switch to a virtualized GridView if it lags
+    WIKI_PAGE = 30 if mobile else 60
     wiki_state = {"cat": "Characters", "items": [], "limit": WIKI_PAGE, "done": set()}
     wiki_search = ft.TextField(hint_text="Search", prefix_icon=ft.Icons.SEARCH_ROUNDED, width=None if mobile else 260,
                                expand=mobile, dense=True,
@@ -1165,16 +1176,17 @@ def main(page: ft.Page):
     def wiki_tile(e, owned):
         r = wiki.rarity(e)
         return ft.Container(ft.Column([
-            ft.Stack([portrait(e["icon"], r, 72, WIKI_CATS[wiki_state["cat"]]),
+            ft.Stack([portrait(e["icon"], r, tile_px, WIKI_CATS[wiki_state["cat"]]),
                       ft.Container(ft.Icon(ft.Icons.CHECK_CIRCLE_ROUNDED, size=18, color=WON), right=-4, top=-4,
-                                   visible=owned)], width=72, height=72, clip_behavior=ft.ClipBehavior.NONE),
-            ft.Text(e["name"], size=13, weight=ft.FontWeight.W_600, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS,
-                    text_align=ft.TextAlign.CENTER),
+                                   visible=owned)], width=tile_px, height=tile_px, clip_behavior=ft.ClipBehavior.NONE),
+            ft.Text(e["name"], size=12 if mobile else 13, weight=ft.FontWeight.W_600, max_lines=2,
+                    overflow=ft.TextOverflow.ELLIPSIS, text_align=ft.TextAlign.CENTER),
             muted("★" * r, size=11, color=GOLD if r == 5 else PURPLE if r == 4 else None, visible=bool(r)),
-        ], spacing=4, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-            width=grid_w or 120, padding=8, border_radius=STYLE["radius"] - 4, bgcolor=STYLE["card_bg"],
-            border=STYLE["border"],
-            tooltip=e["desc"][:400] or e["name"], url=wiki.WIKI_ENTRY_URL.format(e["id"]))
+        ], spacing=2 if mobile else 4, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+            padding=6 if mobile else 8, border_radius=STYLE["radius"] - 4, bgcolor=STYLE["card_bg"],
+            border=STYLE["border"], url=wiki.WIKI_ENTRY_URL.format(e["id"]),
+            # phones have no hover, so long tooltip text would only slow every redraw
+            tooltip=None if mobile else e["desc"][:400] or e["name"], **sized(120))
 
     def achievement_row(a):
         def toggle(ev):
@@ -1211,8 +1223,7 @@ def main(page: ft.Page):
             owned = {c["name"] for c in roster["chars"]} if cat == "Characters" else set()
             wiki_count.value = (f"{len(shown):,} of {len(items):,} {cat.lower()}. Tap one to open it on the "
                                 "HoYoLAB wiki.")
-            wiki_grid.controls = [ft.Row([wiki_tile(e, e["name"] in owned) for e in shown[:wiki_state["limit"]]],
-                                         wrap=True, spacing=10, run_spacing=10)]
+            wiki_grid.controls = [tile_grid([wiki_tile(e, e["name"] in owned) for e in shown[:wiki_state["limit"]]])]
         wiki_more.visible = len(shown) > wiki_state["limit"]
         wiki_body.update()
 
@@ -1226,7 +1237,7 @@ def main(page: ft.Page):
         """Fetch (or read the cache of) the picked category, then rebuild its filter bar. Worker thread."""
         cat = wiki_state["cat"]
         wiki_count.value = f"Loading {cat.lower()}..."
-        wiki_grid.controls = [skeleton(12, height=56) if cat == "Achievements" else skeleton(18, tile=grid_w or 120)]
+        wiki_grid.controls = [skeleton(12, height=56) if cat == "Achievements" else skeleton(12 if mobile else 18, tile=skel_tile)]
         wiki_body.update()
         conn = db.connect()
         try:
@@ -1617,12 +1628,8 @@ def main(page: ft.Page):
                                   style=ft.ButtonStyle(color=ft.Colors.ERROR))]),
         title="Your data", icon=ft.Icons.STORAGE_ROUNDED)
 
-    try:
-        version = importlib.metadata.version("teyvault")
-    except importlib.metadata.PackageNotFoundError:  # running from a flet build
-        version = ""
     about_card = card(
-        ft.Row([logo_badge(), ft.Column([ft.Text(f"{APP} {version}".strip(), size=16, weight=ft.FontWeight.W_600),
+        ft.Row([logo_badge(), ft.Column([ft.Text(f"{APP} {__version__}", size=16, weight=ft.FontWeight.W_600),
                                          muted(f"Made by {APP_AUTHOR}. Free and open source.", size=13)],
                                         spacing=2, expand=True)], spacing=12),
         ft.Row([ft.OutlinedButton("Source code on GitHub", icon=ft.Icons.CODE_ROUNDED, url=APP_REPO)]),
