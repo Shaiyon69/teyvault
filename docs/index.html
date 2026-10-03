@@ -9,28 +9,24 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  /* Palette from the app (NIGHT / DAY and the Glass page gradient in teyvat/gui.py). */
+  /* Palette from the app (NIGHT / DAY in teyvat/gui.py). */
   :root {
     --gold: #E6C07B; --purple: #B58CF5; --won: #7BD4A8; --lost: #F08A8A;
     --on-gold: #1B1608; --surface: #0E1020; --text: #ECE8F4; --muted: #BDBAD0;
-    --card: rgba(255, 255, 255, .06); --card-border: rgba(255, 255, 255, .12); --track: #272C4F;
-    --bg-a: #2A1B5C; --bg-b: #0B3346;
+    --card: #171A2E; --card-border: #2C3155; --track: #272C4F;
   }
   @media (prefers-color-scheme: light) {
     :root {
       --gold: #946A14; --purple: #6E46C0; --won: #1E8A5A; --lost: #C0392B;
       --on-gold: #FFFFFF; --surface: #F7F5FB; --text: #1B1A24; --muted: #55526A;
-      --card: rgba(255, 255, 255, .6); --card-border: rgba(255, 255, 255, .8); --track: #DBD5E8;
-      --bg-a: #E9E2FF; --bg-b: #DDF2FF;
+      --card: #EEEAF5; --card-border: #CFC8DF; --track: #DBD5E8;
     }
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
     margin: 0; color: var(--text); font: 16px/1.6 Inter, system-ui, sans-serif;
-    background: radial-gradient(60vw 60vw at 0% 0%, var(--bg-a), transparent 70%),
-                radial-gradient(60vw 60vw at 100% 100%, var(--bg-b), transparent 70%), var(--surface);
-    background-attachment: fixed; min-height: 100vh;
+    background: var(--surface);
   }
   a { color: inherit; }
   main { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
@@ -41,7 +37,6 @@
 
   .glass {
     background: var(--card); border: 1px solid var(--card-border); border-radius: 22px;
-    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
   }
 
   .hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; padding: 56px 0 72px; }
@@ -51,15 +46,15 @@
     background: color-mix(in srgb, var(--gold) 10%, transparent);
   }
   h1 { font-size: clamp(40px, 7vw, 64px); line-height: 1.05; margin: 20px 0 16px; font-weight: 800; letter-spacing: -.02em; }
-  h1 span { background: linear-gradient(90deg, var(--gold), var(--purple)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  h1 span { color: var(--gold); }
   .lead { font-size: 18px; color: var(--muted); margin: 0 0 32px; max-width: 34em; }
   .actions { display: flex; flex-wrap: wrap; gap: 12px; }
   .btn {
     display: inline-flex; align-items: center; gap: 10px; padding: 14px 22px; border-radius: 999px;
-    font-weight: 600; text-decoration: none; transition: transform .15s, box-shadow .15s;
+    font-weight: 600; text-decoration: none; transition: transform .15s;
   }
   .btn svg { width: 20px; height: 20px; fill: currentColor; }
-  .btn.primary { background: var(--gold); color: var(--on-gold); box-shadow: 0 8px 24px color-mix(in srgb, var(--gold) 30%, transparent); }
+  .btn.primary { background: var(--gold); color: var(--on-gold); }
   .btn.secondary { background: var(--card); border: 1px solid var(--card-border); }
   .btn:hover { transform: translateY(-2px); }
   .fine { margin-top: 16px; font-size: 13px; color: var(--muted); }
