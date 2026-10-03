@@ -29,7 +29,7 @@
     background: var(--surface);
   }
   a { color: inherit; }
-  main { max-width: 920px; margin: 0 auto; padding: 0 16px; }
+  main { max-width: 1680px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 64px); }
   nav { display: flex; align-items: center; gap: 10px; padding: 14px 0; font-weight: 700; }
   nav img { width: 28px; height: 28px; border-radius: 8px; }
   nav a.gh { margin-left: auto; font-weight: 500; font-size: 14px; color: var(--muted); text-decoration: none; }
@@ -39,13 +39,13 @@
     background: var(--card); border: 1px solid var(--card-border); border-radius: 18px;
   }
 
-  .hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 32px; align-items: center; padding: 24px 0 40px; }
+  .hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: clamp(32px, 5vw, 72px); align-items: center; padding: clamp(24px, 4vw, 56px) 0 clamp(40px, 5vw, 64px); }
   .badge {
     display: inline-flex; gap: 8px; align-items: center; padding: 4px 12px; border-radius: 999px;
     font-size: 12px; font-weight: 600; color: var(--gold); border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent);
     background: color-mix(in srgb, var(--gold) 10%, transparent);
   }
-  h1 { font-size: clamp(32px, 5vw, 44px); line-height: 1.1; margin: 12px 0 10px; font-weight: 800; letter-spacing: -.02em; }
+  h1 { font-size: clamp(32px, 4.4vw, 56px); line-height: 1.1; margin: 12px 0 10px; font-weight: 800; letter-spacing: -.02em; }
   h1 span { color: var(--gold); }
   .lead { font-size: 16px; color: var(--muted); margin: 0 0 20px; max-width: 34em; }
   .actions { display: flex; flex-wrap: wrap; gap: 10px; }
