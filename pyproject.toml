@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "teyvault"
-version = "0.2.0"
+version = "1.0.0"
 description = "Genshin Impact account companion: daily check-in, codes, wish history."
 requires-python = ">=3.11"
 dependencies = ["keyring>=24", "flet==1.0.3", "openpyxl>=3.1", "pywebview>=6; sys_platform == 'win32'"]
@@ -30,7 +30,7 @@ company = "Teyvault"
 [tool.flet.app]
 path = "."
 module = "main"
-exclude = ["tests", "build", "*.egg-info"]
+exclude = ["tests", "build", "dist", ".github", "installer.iss", "*.egg-info"]
 
 # iOS asks before an app talks to the local network (phone sync pulls from the PC).
 [tool.flet.ios.info]

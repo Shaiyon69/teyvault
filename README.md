@@ -10,7 +10,16 @@ A Genshin Impact companion for Windows, Android and iOS, with a matching CLI.
 
 Global (`os_*`) servers only. Your cookies stay in the OS keyring and are never sent anywhere except HoYoLAB.
 
-## Run
+## Install
+
+Download from the [latest release](https://github.com/Shaiyon69/teyvault/releases/latest):
+
+- **Windows**: `Teyvault-Setup.exe`. Run it and click through; no admin rights needed. Windows SmartScreen may warn because the installer isn't code-signed: click *More info* then *Run anyway*.
+- **Android**: `Teyvault.apk`. Open it on your phone and allow installing from your browser when asked.
+
+Your wish history and sign-in are kept when you update or reinstall.
+
+## Run from source
 
 ```sh
 pip install -e .
@@ -19,6 +28,6 @@ teyvault wish stats # CLI
 python -m unittest discover -s tests
 ```
 
-Package with `flet build windows | apk | ipa`.
+Package mobile with `flet build apk | ipa`. Pushing a `v*` tag builds the Windows installer and APK and publishes them as a GitHub Release (`.github/workflows/release.yml`).
 
 Made by [Shaiyon69](https://github.com/Shaiyon69). Not affiliated with HoYoverse.
