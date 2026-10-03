@@ -5,6 +5,7 @@ import ast
 import datetime
 import functools
 import hashlib
+import html
 import json
 import re
 import threading
@@ -18,6 +19,7 @@ from teyvat.hoyolab import SSL_CONTEXT, UA, request
 
 WIKI_LIST_URL = "https://sg-wiki-api.hoyolab.com/hoyowiki/genshin/wapi/get_entry_page_list"
 WIKI_ENTRY_URL = "https://wiki.hoyolab.com/pc/genshin/entry/{}"
+ENTRY_API_URL = "https://sg-wiki-api-static.hoyolab.com/hoyowiki/genshin/wapi/entry_page"
 ACHIEVEMENTS_URL = "https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/src/data/achievement/en.json"
 TIMELINE_URL = "https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/src/data/timeline.js"
 BANNERS_URL = "https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/src/data/banners.js"
@@ -121,6 +123,73 @@ def rarity(e) -> int:
     stars = [v.count("★") or int(v[0]) for k, vs in e["filters"].items()
              for v in vs if "★" in v or ("rarity" in k and v[:1].isdigit())]
     return max(stars, default=0)
+
+
+def text(rich) -> str:
+    """Wiki HTML -> plain text: <br> and paragraphs become line breaks, tags dropped, entities decoded."""
+    rich = re.sub(r"<br\s*/?>|</p>\s*<p[^>]*>", "\n", rich or "")
+    return html.unescape(re.sub(r"<[^>]+>", "", rich)).strip()
+
+
+def _value(v) -> str:
+    """A baseInfo value: rich text, or a "$[...]$" link list to other entries (names kept)."""
+    if v.startswith("$[") and v.endswith("]$"):
+        return ", ".join(r.get("name") or r.get("nickname") or "" for r in json.loads(v[1:-1]))
+    return text(v)
+
+
+def slim_entry(p) -> dict:
+    """One wiki page -> {name, icon, image, desc, sections: [{title, rows: [[name, text, icon]]}]}.
+    Keeps the readable modules (attributes, set bonus, talents, constellations, stats, lore); skips
+    voice lines, videos and material lists."""
+    out = {"name": p["name"], "icon": p["icon_url"], "image": "", "desc": text(p["desc"]), "sections": []}
+    for mod in p["modules"]:
+        for comp in mod["components"]:
+            d, cid, title = json.loads(comp["data"] or "null"), comp["component_id"], mod["name"]
+            if not d:
+                continue
+            rows = []
+            if cid == "baseInfo":
+                rows = [[x["key"], ", ".join(_value(v) for v in x["value"]), ""] for x in d["list"] if x["key"] != "Name"]
+            elif cid == "reliquary_set_effect":
+                rows = [[k, d[f], ""] for k, f in (("1-Piece", "single_set_effect"), ("2-Piece", "two_set_effect"),
+                                                   ("4-Piece", "four_set_effect")) if d.get(f)]
+            elif cid == "artifact_list":
+                rows = [[x["title"], text(x.get("desc")), x.get("icon_url", "")]
+                        for x in d.values() if isinstance(x, dict) and x.get("title")]
+            elif cid == "talent":
+                rows = [[x["title"], text(x["desc"]), x.get("icon_url", "")] for x in d["list"]]
+            elif cid == "summaryList":
+                rows = [[x["name"], text(x["desc"]), x.get("icon_url", "")] for x in d["list"]]
+            elif cid == "ascension" and d.get("list"):
+                top = d["list"][-1]  # the max level
+                title = f"Stats at {top['key']}"
+                head, *body = top["combatList"]  # first row names the columns; "-" = no value at max level
+                for x in body:
+                    vals = {re.sub(r" (before|after) Ascension", "", h): v
+                            for h, v in zip(head["values"], x["values"]) if v != "-"}
+                    # characters: one stat per row; weapons: an unnamed row of ATK + substat
+                    rows += ([[x["key"], list(vals.values())[-1], ""]] if x["key"] and vals
+                             else [[h, v, ""] for h, v in vals.items()])
+            elif cid == "story":
+                rows = [[x.get("title", ""), text(x["desc"]), ""] for x in d["list"] if x.get("desc")]
+            elif cid == "gallery_character":
+                out["image"] = d.get("pic") or next((x["img"] for x in d.get("list", []) if x.get("img")), "")
+            if rows:
+                last = out["sections"][-1] if out["sections"] else None
+                if last and last["title"] == title:
+                    last["rows"] += rows
+                else:
+                    out["sections"].append({"title": title, "rows": rows})
+    return out
+
+
+def entry(conn, entry_id, refresh=False) -> dict:
+    """One wiki page, shown in the app instead of the website. Kept a week, read offline after that."""
+    fetch = lambda: slim_entry(request(ENTRY_API_URL, params={"entry_page_id": entry_id},
+                                       referer="https://wiki.hoyolab.com/",
+                                       headers={"x-rpc-language": "en-us"})["data"]["page"])
+    return _cached(conn, f"wiki:entry:{entry_id}", fetch, refresh, days=7)
 
 
 def flatten_achievements(raw) -> list[dict]:

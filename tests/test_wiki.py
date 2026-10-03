@@ -25,6 +25,23 @@ class TestWiki(unittest.TestCase):
         self.assertEqual(wiki.label("weapon_type"), "Type")
         self.assertEqual(wiki.label("new_key"), "New Key")
 
+    def test_slim_entry_page(self):
+        comp = lambda cid, data: {"component_id": cid, "data": json.dumps(data)}
+        page = {"name": "Bow", "icon_url": "i.png", "desc": "A bow<br>&#39;nice&#39;", "modules": [
+            {"name": "Attributes", "components": [comp("baseInfo", {"list": [
+                {"key": "Name", "value": ["Bow"]}, {"key": "Region", "value": ["<p>Snezhnaya</p>"]},
+                {"key": "Namecard", "value": ['$[{"ep_id":1,"name":"Card"}]$']}]})]},
+            {"name": "Ascend", "components": [comp("ascension", {"list": [{"key": "Lv.90", "combatList": [
+                {"key": "", "values": ["ATK before Ascension", "ATK after Ascension", "CRIT Rate"]},
+                {"key": "", "values": ["510", "-", "27.6%"]}]}]})]},
+            {"name": "Gallery", "components": [comp("gallery_character", {"pic": "splash.png", "list": []})]},
+            {"name": "Voice-Over", "components": [comp("voice", {"list": []})]}]}
+        e = wiki.slim_entry(page)
+        self.assertEqual((e["desc"], e["image"]), ("A bow\n'nice'", "splash.png"))
+        self.assertEqual(e["sections"], [
+            {"title": "Attributes", "rows": [["Region", "Snezhnaya", ""], ["Namecard", "Card", ""]]},
+            {"title": "Stats at Lv.90", "rows": [["ATK", "510", ""], ["CRIT Rate", "27.6%", ""]]}])
+
     def test_flatten_tiered_achievements(self):
         raw = {"0": {"name": "Wonders", "achievements": [
             {"id": 1, "name": "One", "reward": 5},

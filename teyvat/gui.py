@@ -18,6 +18,17 @@ ELEMENT_COLORS = {"Pyro": "#F08A5D", "Hydro": "#5DB4F0", "Anemo": "#74D9C0", "El
                   "Dendro": "#A5D65B", "Cryo": "#9FDDF0", "Geo": "#E6C07B"}
 RARITY_BG = {5: ["#9C6B3A", "#C9965A"], 4: ["#5E4A8C", "#8A6CC0"], 3: ["#3E6A8C", "#5A93B5"],
              2: ["#3E7A5E", "#5AA07E"], 1: ["#5A5F70", "#7A8090"]}
+# Battle Chronicle's own icon for these 404s or is empty, so the HoYoLAB wiki's emblem is used instead.
+WIKI_STATIC = "https://act-webstatic.hoyoverse.com/event-static-hoyowiki-admin/"
+WIKI_UGC = "https://act-upload.hoyoverse.com/event-ugc-hoyowiki/"
+REGION_ICONS = {
+    "Natlan": WIKI_UGC + "2024/08/31/237301566/8694aaf89d32e75eca416ec7fe41e487_8636855791292057309.png",
+    "Ancient Sacred Mountain": WIKI_UGC + "2025/03/29/237301566/6fdb6cce9a5cce40096dce9c2672feba_7641303426493271828.png",
+    "Nod-Krai": WIKI_UGC + "2025/09/20/237301566/78a8e1dd1bd89bf1cc3a54aaf005406f_9202701640283190184.png",
+    "Windrest Peak": WIKI_STATIC + "2026/04/07/1ef18ac06790b8384d2bd592a26f9eaa_4294499528830036418.png",
+    "Temple of Space": WIKI_STATIC + "2026/04/03/f074ef5535687601974bdcc973cd0a20_2383623952857545804.png",
+}
+region_icon = lambda w: REGION_ICONS.get(w["name"]) or w.get("icon") or w.get("inner_icon")
 WEAPON_TYPES = {1: "Sword", 10: "Catalyst", 11: "Claymore", 12: "Bow", 13: "Polearm"}
 PRYDWEN = json.loads(resources.files("teyvat").joinpath("data/prydwen_tiers.json").read_text("utf-8"))
 TIER_COLORS = dict(zip(PRYDWEN["tiers"], [LOST, "#F0A86A", GOLD, "#D9D46A", WON, "#5DB4F0", PURPLE, "#8A8FA8"]))
@@ -131,11 +142,17 @@ def use_style(name, light, mobile):
     }.get(name, {}))
 
 
+# Thin, trackless scrollbar that fades in while scrolling instead of the default grey gutter.
+SCROLLBAR = ft.ScrollbarTheme(thickness=4, radius=4, track_visibility=False, track_color=ft.Colors.TRANSPARENT,
+                              track_border_color=ft.Colors.TRANSPARENT, cross_axis_margin=2, main_axis_margin=4,
+                              thumb_color=ft.Colors.with_opacity(0.3, ft.Colors.ON_SURFACE))
+
+
 def make_theme(style, light, seed):
     if style == "material":
-        return ft.Theme(color_scheme_seed=seed, use_material3=True, font_family="Inter")
+        return ft.Theme(color_scheme_seed=seed, use_material3=True, font_family="Inter", scrollbar_theme=SCROLLBAR)
     scheme = (NOTHING_LIGHT if light else NOTHING_DARK) if style == "nothing" else DAY if light else NIGHT
-    return ft.Theme(color_scheme=scheme, font_family="Inter")
+    return ft.Theme(color_scheme=scheme, font_family="Inter", scrollbar_theme=SCROLLBAR)
 
 
 def today() -> str:
@@ -157,7 +174,8 @@ def hero(content, **kw):
         accent = ft.Colors.PRIMARY_CONTAINER if STYLE["name"] == "material" else STYLE["card_bg"]
         return ft.Container(content, padding=24, border_radius=STYLE["radius"] + 4, bgcolor=accent,
                             border=ft.Border.all(1, ft.Colors.PRIMARY) if STYLE["name"] == "nothing" else None, **kw)
-    return ft.Container(content, padding=24, border_radius=STYLE["radius"] + 4, theme=ft.Theme(color_scheme=NIGHT, font_family="Inter"),
+    return ft.Container(content, padding=24, border_radius=STYLE["radius"] + 4, theme=ft.Theme(color_scheme=NIGHT, font_family="Inter",
+                                                                                           scrollbar_theme=SCROLLBAR),
                         theme_mode=ft.ThemeMode.DARK, border=STYLE["border"], blur=STYLE["blur"],
                         gradient=ft.LinearGradient(begin=ft.Alignment.TOP_LEFT, end=ft.Alignment.BOTTOM_RIGHT,
                                                    colors=STYLE["hero"]), **kw)
@@ -217,12 +235,12 @@ def clean(text) -> str:
 def reward_tile(day, award, claimed, current):
     """One day of the monthly check-in calendar, using HoYoLAB's own reward icon."""
     return ft.Container(ft.Column([
-        ft.Icon(ft.Icons.CHECK_CIRCLE_ROUNDED, size=15, color=WON) if claimed else muted(f"Day {day}", size=12),
+        ft.Icon(ft.Icons.CHECK_CIRCLE_ROUNDED, size=15, color=WON) if claimed else muted(f"Day {day}", size=11, no_wrap=True),
         ft.Image(src=wiki.image(award["icon"]), width=36, height=36,
                  error_content=ft.Icon(ft.Icons.CARD_GIFTCARD_ROUNDED, color=ft.Colors.ON_SURFACE_VARIANT)),
         ft.Text(f"×{award['cnt']:,}", size=12, weight=ft.FontWeight.W_600),
     ], spacing=2, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-        width=66, padding=6, border_radius=12, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
+        col=1, padding=4, border_radius=12, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
         opacity=0.45 if claimed and not current else 1,
         border=ft.Border.all(2, WON if claimed else GOLD) if current else None,
         tooltip=f"Day {day}: {award['name']} ×{award['cnt']:,}" + (" (claimed)" if claimed else ""))
@@ -392,15 +410,17 @@ def main(page: ft.Page):
     seed = db.get_meta(conn0, "seed", next(iter(SEEDS)))
     mobile = page.platform in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS)
     desktop = not mobile and not page.web
-    # Phones: character/wiki tiles three to a row (ResponsiveRow columns, so any screen width fits);
-    # landscape phones and tablets get more per row.
-    sized = lambda w: {"col": {"xs": 4, "sm": 3, "md": 2}} if mobile else {"width": w}
+    # Character/wiki tiles fill the row at any width (ResponsiveRow) instead of leaving a gap on the right.
+    # Phones: three to a row, more in landscape. PC: 120 columns so window-size steps stay whole numbers
+    # (the sidebar takes ~280 px, so e.g. a 1280 px window shows 8 per row).
+    tile_cols = 12 if mobile else 120
+    tile_col = {"xs": 4, "sm": 3, "md": 2} if mobile else {"xs": 60, "sm": 40, "md": 24, "lg": 20, "xl": 15, "xxl": 12}
     tile_px = 56 if mobile else 72  # portrait size in character/wiki tiles
     skel_tile = 96 if mobile else 112
 
     def tile_grid(tiles):
-        return (ft.ResponsiveRow(tiles, spacing=8, run_spacing=8) if mobile
-                else ft.Row(tiles, wrap=True, spacing=10, run_spacing=10))
+        gap = 8 if mobile else 10
+        return ft.ResponsiveRow(tiles, columns=tile_cols, spacing=gap, run_spacing=gap)
     light = theme == "light" or theme == "system" and page.platform_brightness == ft.Brightness.LIGHT
     if light:
         use_light_palette()
@@ -507,7 +527,8 @@ def main(page: ft.Page):
         page.update()
         return result
 
-    rewards_grid = ft.Row(wrap=True, spacing=8, run_spacing=8)
+    # columns = tiles per row, so the calendar fills the card instead of leaving a gap on the right
+    rewards_grid = ft.ResponsiveRow(columns=5 if mobile else 7, spacing=6 if mobile else 8, run_spacing=8)
     rewards_sub = muted("")
     rewards_card = card(rewards_sub, rewards_grid, title="Daily rewards", icon=ft.Icons.CALENDAR_MONTH_ROUNDED,
                         visible=False)
@@ -516,7 +537,7 @@ def main(page: ft.Page):
         """Fill the reward calendar from HoYoLAB (runs on a worker thread)."""
         rewards_card.visible = logged_in()
         if rewards_card.visible:
-            rewards_sub.value, rewards_grid.controls = "", [skeleton(14, tile=66)]
+            rewards_sub.value, rewards_grid.controls = "", [ft.Container(skeleton(14, tile=66), col=rewards_grid.columns)]
             page.update()
             try:
                 m = hoyolab.checkin_month(vault.load())
@@ -855,11 +876,11 @@ def main(page: ft.Page):
         if w["type"] == "Reputation" and w["level"]:
             extras.append(f"Reputation Lv {w['level']}")
         extras += [f"{o['name']} Lv {o['level']}" for o in w.get("offerings") or []]
-        icon = w.get("icon") or w.get("inner_icon")
+        icon = region_icon(w)
         terrain = ft.Icon(ft.Icons.TERRAIN_ROUNDED, color=ft.Colors.ON_SURFACE_VARIANT)
         shown = bool(pct) or not kids  # a parent with 0% only groups its sub-areas
         head = ft.Row([
-            # some API icon URLs 404 (Natlan, Nod-Krai) or are empty, so both fall back to a glyph
+            # a region missing from REGION_ICONS whose API icon 404s still gets a glyph
             ft.Container(ft.Image(src=wiki.image(icon), width=40, height=40, error_content=terrain) if icon else terrain,
                          width=52, height=52, border_radius=14, alignment=ft.Alignment.CENTER,
                          bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH),
@@ -893,7 +914,7 @@ def main(page: ft.Page):
         world_body.update()
         try:
             rec = hoyolab.game_record(vault.load(), role)
-            wiki.cache_images(w.get("icon") or w.get("inner_icon") for w in rec["world_explorations"])
+            wiki.cache_images(region_icon(w) for w in rec["world_explorations"])
         except Exception as ex:
             world_body.controls = [card(muted(f"Could not load exploration: {ex}. Make sure Battle "
                                               "Chronicle is enabled in your HoYoLAB privacy settings."))]
@@ -938,11 +959,19 @@ def main(page: ft.Page):
     chars_grid = ft.Column(spacing=12, horizontal_alignment=STRETCH)
     META_ROLES = ("On-field DPS", "Off-field DPS", "Support")
 
-    def filter_bar(search, dropdowns):
-        if mobile:
-            return ft.Column([search, ft.Row(dropdowns, spacing=8, scroll=ft.ScrollMode.AUTO)], spacing=8,
-                             horizontal_alignment=STRETCH)
-        return ft.Row([search, *dropdowns], wrap=True, spacing=8, run_spacing=8)
+    def filter_bar(row, panel):
+        """Search (plus any buttons) on one line; the filter dropdowns fold away behind a Filters button."""
+        panel.visible, panel.wrap, panel.spacing, panel.run_spacing = False, True, 8, 8
+        toggle = (ft.IconButton(ft.Icons.TUNE_ROUNDED, tooltip="Filters") if mobile
+                  else ft.OutlinedButton("Filters", icon=ft.Icons.TUNE_ROUNDED))
+
+        def flip(e):
+            panel.visible = not panel.visible
+            toggle.icon = ft.Icons.EXPAND_LESS_ROUNDED if panel.visible else ft.Icons.TUNE_ROUNDED
+            bar.update()
+        toggle.on_click = flip
+        bar = ft.Column([ft.Row([*row, toggle], spacing=8), panel], spacing=8, horizontal_alignment=STRETCH)
+        return bar
 
     def char_filter(label, options, width=150):
         return ft.Dropdown(label=label, value="All", width=width, dense=True, filled=True, border_radius=14,
@@ -964,10 +993,9 @@ def main(page: ft.Page):
                               ("rarity", "Rarity"), ("tier", "Meta tier"), ("role", "Meta role"))],
                           on_select=lambda e: show_chars())
     f_search = ft.TextField(hint_text="Search characters", prefix_icon=ft.Icons.SEARCH_ROUNDED,
-                            width=None if mobile else 220, dense=True, filled=True, border_radius=14,
+                            width=None if mobile else 220, expand=mobile, dense=True, filled=True, border_radius=14,
                             on_change=lambda e: show_chars())
-    # Phones: full-width search, the eight filters in one row that scrolls sideways instead of a tall stack.
-    chars_filters = filter_bar(f_search, [f_element, f_weapon, f_rarity, f_tier, f_role, f_sort, f_group])
+    chars_filters = filter_bar([f_search], ft.Row([f_element, f_weapon, f_rarity, f_tier, f_role, f_sort, f_group]))
 
     def show_chars():
         """Apply the filter bar to the loaded roster. Tier and role filters match the same rating, so
@@ -1034,7 +1062,7 @@ def main(page: ft.Page):
         ], spacing=2 if mobile else 4, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
             padding=6 if mobile else 10, border_radius=16, bgcolor=ft.Colors.SURFACE_CONTAINER,
             tooltip=None if mobile else f"{c['name']} · {c['element']} · {w['name']}",
-            on_click=lambda e: open_build(c, role), **sized(112))
+            on_click=lambda e: open_build(c, role), col=tile_col)
 
     def build_view(c, d, pm):
         """Two columns on desktop (who they are | what they wear), one on mobile."""
@@ -1184,9 +1212,65 @@ def main(page: ft.Page):
             muted("★" * r, size=11, color=GOLD if r == 5 else PURPLE if r == 4 else None, visible=bool(r)),
         ], spacing=2 if mobile else 4, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
             padding=6 if mobile else 8, border_radius=STYLE["radius"] - 4, bgcolor=STYLE["card_bg"],
-            border=STYLE["border"], url=wiki.WIKI_ENTRY_URL.format(e["id"]),
+            border=STYLE["border"], on_click=lambda ev: open_entry(e),
             # phones have no hover, so long tooltip text would only slow every redraw
-            tooltip=None if mobile else e["desc"][:400] or e["name"], **sized(120))
+            tooltip=None if mobile else e["desc"][:400] or e["name"], col=tile_col)
+
+    def entry_view(d):
+        """A wiki page rendered in the app: picture, blurb, then each section (attributes, talents, ...)."""
+        blocks = [ft.Container(ft.Image(src=wiki.image(d["image"]), height=220, fit=ft.BoxFit.CONTAIN,
+                                        error_content=ft.Container()), alignment=ft.Alignment.CENTER)
+                  ] if d["image"] else []
+        if d["desc"]:
+            blocks.append(muted(d["desc"], italic=True, selectable=True))
+        for sec in d["sections"]:
+            blocks.append(ft.Text(sec["title"], size=14, weight=ft.FontWeight.W_600, color=ft.Colors.PRIMARY))
+            for name, text, icon in sec["rows"]:
+                if icon:  # talent, constellation, artifact piece
+                    blocks.append(ft.Row([
+                        ft.Container(ft.Image(src=wiki.image(icon), width=36, height=36,
+                                              error_content=ft.Icon(ft.Icons.AUTO_AWESOME_ROUNDED, size=20)),
+                                     width=44, height=44, border_radius=12, alignment=ft.Alignment.CENTER,
+                                     bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST),
+                        ft.Column([ft.Text(name, size=14, weight=ft.FontWeight.W_600),
+                                   muted(text, size=13, selectable=True)], spacing=2, expand=True),
+                    ], spacing=10, vertical_alignment=ft.CrossAxisAlignment.START))
+                elif name and len(text) < 120:  # attribute line: label | value
+                    blocks.append(ft.Row([muted(name, size=13, width=110 if mobile else 150),
+                                          ft.Text(text, size=13, selectable=True, expand=True)], spacing=8,
+                                         vertical_alignment=ft.CrossAxisAlignment.START))
+                else:  # set bonus, lore
+                    blocks.append(ft.Column([ft.Text(name, size=13, weight=ft.FontWeight.W_600, visible=bool(name)),
+                                             muted(text, size=13, selectable=True)], spacing=2))
+        return ft.Column(blocks or [muted("This page has no details yet.")], spacing=10, scroll=ft.ScrollMode.AUTO,
+                         horizontal_alignment=STRETCH)
+
+    def open_entry(e):
+        """Wiki tile -> its page inside the app (fetched once, then read from the local cache)."""
+        r, cat = wiki.rarity(e), wiki_state["cat"]
+        body = ft.Container(ft.Column([skeleton(1, height=200), skeleton(4, height=48)], spacing=10, tight=True),
+                            width=(page.width or 360) - 72 if mobile else 760, height=(page.height or 700) - 220 if mobile else 560)
+        tags = [v for vs in e["filters"].values() for v in vs if "★" not in v and not v[:1].isdigit()]
+        page.show_dialog(ft.AlertDialog(
+            inset_padding=ft.Padding.all(12) if mobile else None,
+            title=ft.Row([portrait(e["icon"], r, 44, WIKI_CATS[cat]), ft.Column([
+                ft.Text(e["name"], size=18, weight=ft.FontWeight.BOLD),
+                muted(" · ".join(["★" * r] * bool(r) + tags), size=13),
+            ], spacing=2, expand=True)], spacing=12),
+            content=body, actions=[
+                ft.TextButton("Open on HoYoLAB", icon=ft.Icons.OPEN_IN_NEW_ROUNDED,
+                              url=wiki.WIKI_ENTRY_URL.format(e["id"])),
+                ft.TextButton("Close", on_click=lambda ev: page.pop_dialog())]))
+
+        def load():
+            try:
+                d = wiki.entry(db.connect(), e["id"])
+                wiki.cache_images([d["image"]] + [x[2] for sec in d["sections"] for x in sec["rows"] if x[2]])
+                body.content = entry_view(d)
+            except Exception as ex:
+                body.content = muted(f"Could not load this page: {ex}")
+            body.update()
+        page.run_thread(load)
 
     def achievement_row(a):
         def toggle(ev):
@@ -1206,7 +1290,7 @@ def main(page: ft.Page):
             wiki_state["limit"] = WIKI_PAGE
         cat, items = wiki_state["cat"], wiki_state["items"]
         q = (wiki_search.value or "").strip().lower()
-        picks = {d.data: d.value for d in wiki_filters.controls if d.value != "All"}
+        picks = {d.data: d.value for d in wiki_filters.controls if d.data and d.value != "All"}
         if cat == "Achievements":
             status = picks.pop("status", None)
             shown = [a for a in items if (q in a["name"].lower() or q in a["desc"].lower())
@@ -1221,8 +1305,7 @@ def main(page: ft.Page):
                      and all(v in e["filters"].get(k, []) for k, v in picks.items())]
             shown.sort(key=lambda e: (-wiki.rarity(e), e["name"]) if wiki_sort.value == "rarity" else e["name"])
             owned = {c["name"] for c in roster["chars"]} if cat == "Characters" else set()
-            wiki_count.value = (f"{len(shown):,} of {len(items):,} {cat.lower()}. Tap one to open it on the "
-                                "HoYoLAB wiki.")
+            wiki_count.value = f"{len(shown):,} of {len(items):,} {cat.lower()}. Tap one for details."
             wiki_grid.controls = [tile_grid([wiki_tile(e, e["name"] in owned) for e in shown[:wiki_state["limit"]]])]
         wiki_more.visible = len(shown) > wiki_state["limit"]
         wiki_body.update()
@@ -1252,10 +1335,11 @@ def main(page: ft.Page):
         if cat == "Achievements":
             wiki_state["done"] = db.done_ids(conn)
             wiki_filters.controls = [
-                wiki_dropdown("Category", sorted({a["category"] for a in items}), "category"),
+                wiki_sort, wiki_dropdown("Category", sorted({a["category"] for a in items}), "category"),
                 wiki_dropdown("Status", ["Done", "To do"], "status")]
         else:
-            wiki_filters.controls = [wiki_dropdown(wiki.label(k), vs, k) for k, vs in wiki.filters(items).items()]
+            wiki_filters.controls = [wiki_sort] + [wiki_dropdown(wiki.label(k), vs, k)
+                                                   for k, vs in wiki.filters(items).items()]
         wiki_sort.visible = cat not in ("Achievements", "Enemies")
         show_wiki(reset=True)
         if cat != "Achievements":  # keep the catalogue's pictures for offline use
@@ -1264,19 +1348,20 @@ def main(page: ft.Page):
             return f"{cat} updated."
 
     def pick_wiki_cat(e):
-        wiki_state["cat"] = e.control.selected[0]
+        wiki_state["cat"] = wiki_cat.value
+        wiki_cat.leading_icon = WIKI_CATS[wiki_cat.value]
         wiki_search.value = ""
         page.run_thread(load_wiki)
 
-    wiki_cat = ft.SegmentedButton(selected=["Characters"], show_selected_icon=False, on_change=pick_wiki_cat,
-                                  segments=[ft.Segment(k, label=k, icon=i) for k, i in WIKI_CATS.items()])
+    wiki_cat = ft.Dropdown(label="Category", value="Characters", leading_icon=WIKI_CATS["Characters"],
+                           width=None if mobile else 210, expand=mobile, dense=True, filled=True, border_radius=14,
+                           options=[ft.DropdownOption(k, k, leading_icon=i) for k, i in WIKI_CATS.items()],
+                           on_select=pick_wiki_cat)
     wiki_refresh = ft.IconButton(ft.Icons.REFRESH_ROUNDED, tooltip="Download again",
                                  on_click=guarded(lambda: load_wiki(refresh=True)))
+    wiki_bar = filter_bar([wiki_search, wiki_refresh] if mobile else [wiki_cat, wiki_search, wiki_refresh], wiki_filters)
     wiki_body = ft.Column([
-        ft.Row([wiki_cat], scroll=ft.ScrollMode.AUTO),
-        filter_bar(ft.Row([wiki_search, wiki_refresh], spacing=8), [wiki_sort, wiki_filters]) if mobile
-        else ft.Column([ft.Row([wiki_search, wiki_sort, wiki_refresh], wrap=True, spacing=8, run_spacing=8),
-                        wiki_filters], spacing=12),
+        *([ft.Row([wiki_cat])] if mobile else []), wiki_bar,  # phones: the category picker gets its own line
         wiki_count, wiki_grid, ft.Row([wiki_more]),
     ], spacing=12, horizontal_alignment=STRETCH)
     wiki_view = ft.Column([page_head(WIKI), wiki_body], spacing=16, horizontal_alignment=STRETCH)
