@@ -21,6 +21,7 @@ DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=dist
 OutputBaseFilename=Teyvault-Setup
+SetupIconFile=assets\icon.ico
 UninstallDisplayIcon={app}\{#Exe}
 Compression=lzma2
 SolidCompression=yes
