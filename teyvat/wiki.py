@@ -23,6 +23,7 @@ ENTRY_API_URL = "https://sg-wiki-api-static.hoyolab.com/hoyowiki/genshin/wapi/en
 ACHIEVEMENTS_URL = "https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/src/data/achievement/en.json"
 TIMELINE_URL = "https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/src/data/timeline.js"
 BANNERS_URL = "https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/src/data/banners.js"
+EVENT_IMAGE_URL = "https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/events/{}"
 # Each server's clock (fixed offsets, no daylight saving).
 SERVER_UTC = {"os_usa": -5, "os_euro": 1, "os_asia": 8, "os_cht": 8}
 MENUS = {"Characters": 2, "Weapons": 4, "Artifacts": 5, "Enemies": 7}
@@ -280,6 +281,11 @@ def current_banners(data, region=None, now=None) -> list[tuple[str, dict, dateti
         if ahead:
             out.append((name, *ahead[0]))
     return out
+
+
+def event_image(e) -> str | None:
+    """paimon.moe's banner art for a timeline event, if it has one."""
+    return e.get("image") and EVENT_IMAGE_URL.format(e["image"])
 
 
 def event_times(e, region=None) -> tuple[datetime.datetime, datetime.datetime]:

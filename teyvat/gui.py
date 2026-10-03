@@ -246,7 +246,7 @@ def reward_tile(day, award, claimed, current):
         tooltip=f"Day {day}: {award['name']} ×{award['cnt']:,}" + (" (claimed)" if claimed else ""))
 
 
-def timeline_chart(rows, region, day_px=28, row_h=32):
+def timeline_chart(rows, region, day_px=28, row_h=40):
     """Gantt of paimon.moe's event rows, from a week ago to the last end (at most two months ahead).
     Scrolls sideways; tap a bar for its HoYoLAB article."""
     now = datetime.datetime.now().astimezone()
@@ -269,11 +269,20 @@ def timeline_chart(rows, region, day_px=28, row_h=32):
         for e, start, end in row:
             x0 = pos(start)
             when = f"{start.astimezone():%d %b %H:%M} – {end.astimezone():%d %b %H:%M} (your time)"
+            color = e.get("color", GOLD)
+            # paimon.moe's banner art behind the name, its CSS background-position ("50% 20%") as the alignment
+            px, py = (float(v[:-1]) / 50 - 1 if v.endswith("%") else 0 for v in (e.get("pos") or "50% 50%").split()[:2])
+            art = wiki.event_image(e)
             bars.append(ft.Container(
-                ft.Text(e["name"], size=12, weight=ft.FontWeight.W_600, color="#1A1A1A", no_wrap=True,
-                        overflow=ft.TextOverflow.ELLIPSIS),
-                left=x0, top=y * row_h, width=max(pos(end) - x0, 6), height=row_h - 6, bgcolor=e.get("color", GOLD),
-                border_radius=8, padding=ft.Padding.symmetric(horizontal=8), alignment=ft.Alignment.CENTER_LEFT,
+                ft.Container(ft.Text(e["name"], size=12, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE,
+                                     no_wrap=True, overflow=ft.TextOverflow.ELLIPSIS,
+                                     style=ft.TextStyle(shadow=ft.BoxShadow(blur_radius=4, color=ft.Colors.BLACK))),
+                             gradient=ft.LinearGradient([color, ft.Colors.with_opacity(0, color)], stops=[0.25, 0.9]),
+                             padding=ft.Padding.symmetric(horizontal=8), alignment=ft.Alignment.CENTER_LEFT),
+                left=x0, top=y * row_h, width=max(pos(end) - x0, 6), height=row_h - 6, bgcolor=color,
+                image=art and ft.DecorationImage(src=wiki.image(art), fit=ft.BoxFit.COVER,
+                                                 alignment=ft.Alignment(px, py)),
+                border_radius=8, clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
                 opacity=0.4 if end < now else 1, url=e.get("url"),
                 tooltip="\n".join(x for x in (e["name"], when, e.get("description")) if x)))
     height = max(len(rows) * row_h, row_h)
@@ -610,6 +619,7 @@ def main(page: ft.Page):
         role = active_role()
         try:
             rows = wiki.timeline(db.connect())
+            wiki.cache_images(wiki.event_image(e) for row in rows for e in row)
         except Exception as ex:
             timeline_body.controls = [muted(f"Could not load the timeline: {ex}")]
         else:
