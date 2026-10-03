@@ -3,6 +3,7 @@ knows a one-time PIN; the phone pulls it and imports it like a file. Cookies nev
 import hmac
 import http.server
 import json
+import os
 import secrets
 import socket
 import threading
@@ -23,6 +24,12 @@ def local_ip() -> str:
         return s.getsockname()[0]
 
 
+class _Server(http.server.HTTPServer):
+    # On Windows SO_REUSEADDR lets a second Teyvault bind the same port, and the phone then reaches
+    # whichever one Windows picks (usually with the other PIN). Exclusive bind falls back to a random port.
+    allow_reuse_address = os.name != "nt"
+
+
 class Share:
     """Serve `payload` (UIGF JSON bytes) at GET /uigf to requests carrying the right X-PIN header."""
     # NOTE: plain HTTP, so someone sniffing the Wi-Fi could read the wish list (no cookies in it);
@@ -35,8 +42,11 @@ class Share:
 
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_GET(self):
+                if self.path != "/uigf":  # a browser poking the address (favicon, /) costs no PIN try
+                    self.send_error(404)
+                    return
                 pin = self.headers.get("X-PIN", "").encode()
-                if self.path != "/uigf" or not hmac.compare_digest(pin, share.pin.encode()):
+                if not hmac.compare_digest(pin, share.pin.encode()):
                     share.bad += 1
                     self.send_error(403)
                     if share.bad >= MAX_BAD_PINS:  # shutdown() waits for this handler, so not inline
@@ -52,9 +62,9 @@ class Share:
                 pass
 
         try:
-            self.server = http.server.HTTPServer((host, PORT), Handler)
+            self.server = _Server((host, PORT), Handler)
         except OSError:
-            self.server = http.server.HTTPServer((host, 0), Handler)
+            self.server = _Server((host, 0), Handler)
         self.port = self.server.server_port
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
 
@@ -66,6 +76,8 @@ class Share:
 def pull(address: str, pin: str, timeout=15) -> dict:
     """Fetch the UIGF export from a PC's Share. `address` is "ip:port" as the PC shows it."""
     address = address.strip().removeprefix("http://").rstrip("/")
+    if ":" not in address:  # typed the IP only
+        address = f"{address}:{PORT}"
     req = urllib.request.Request(f"http://{address}/uigf", headers={"X-PIN": pin.strip()})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
@@ -74,5 +86,5 @@ def pull(address: str, pin: str, timeout=15) -> dict:
         if e.code == 403:
             raise SystemExit("Wrong PIN, or the PC stopped sharing.") from None
         raise
-    except (urllib.error.URLError, TimeoutError) as e:
+    except OSError as e:  # URLError, timeout, connection reset
         raise SystemExit(f"Could not reach {address}. Is the PC still sharing, on the same Wi-Fi?") from e
