@@ -8,113 +8,275 @@
 <link rel="icon" href="https://raw.githubusercontent.com/Shaiyon69/teyvault/main/assets/icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" rel="stylesheet">
 <style>
   /* Palette from the app (NIGHT / DAY in teyvat/gui.py). */
   :root {
-    --gold: #E6C07B; --purple: #B58CF5; --won: #7BD4A8; --lost: #F08A8A;
+    --gold: #E6C07B; --purple: #B58CF5; --won: #7BD4A8; --lost: #F08A8A; --hydro: #5DB4F0;
     --on-gold: #1B1608; --surface: #0E1020; --text: #ECE8F4; --muted: #BDBAD0;
-    --card: #171A2E; --card-border: #2C3155; --track: #272C4F;
+    --card: #171A2E; --card-2: #1F2340; --card-border: #2C3155; --track: #272C4F;
   }
   @media (prefers-color-scheme: light) {
     :root {
-      --gold: #946A14; --purple: #6E46C0; --won: #1E8A5A; --lost: #C0392B;
+      --gold: #946A14; --purple: #6E46C0; --won: #1E8A5A; --lost: #C0392B; --hydro: #1F7AC0;
       --on-gold: #FFFFFF; --surface: #F7F5FB; --text: #1B1A24; --muted: #55526A;
-      --card: #EEEAF5; --card-border: #CFC8DF; --track: #DBD5E8;
+      --card: #EEEAF5; --card-2: #E5E0EF; --card-border: #CFC8DF; --track: #DBD5E8;
     }
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
-  body {
-    margin: 0; color: var(--text); font: 15px/1.5 Inter, system-ui, sans-serif;
-    background: var(--surface);
-  }
+  body { margin: 0; color: var(--text); font: 15px/1.55 Inter, system-ui, sans-serif; background: var(--surface); }
   a { color: inherit; }
-  main { max-width: 1680px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 64px); }
-  nav { display: flex; align-items: center; gap: 10px; padding: 14px 0; font-weight: 700; }
-  nav img { width: 28px; height: 28px; border-radius: 8px; }
-  nav a.gh { margin-left: auto; font-weight: 500; font-size: 14px; color: var(--muted); text-decoration: none; }
-  nav a.gh:hover { color: var(--text); }
+  img { display: block; }
+  .wrap { max-width: 1680px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 64px); }
 
-  .glass {
-    background: var(--card); border: 1px solid var(--card-border); border-radius: 18px;
-  }
+  /* Nav */
+  nav { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--surface) 85%, transparent);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--card-border); }
+  nav .wrap { display: flex; align-items: center; gap: 24px; height: 60px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; text-decoration: none; }
+  .brand img { width: 30px; height: 30px; border-radius: 8px; }
+  .links { display: flex; gap: 22px; margin-left: auto; font-size: 14px; }
+  .links a { color: var(--muted); text-decoration: none; }
+  .links a:hover { color: var(--text); }
+  .nav-cta { padding: 7px 16px; font-size: 14px; }
 
-  .hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: clamp(32px, 5vw, 72px); align-items: center; padding: clamp(24px, 4vw, 56px) 0 clamp(40px, 5vw, 64px); }
-  .badge {
-    display: inline-flex; gap: 8px; align-items: center; padding: 4px 12px; border-radius: 999px;
-    font-size: 12px; font-weight: 600; color: var(--gold); border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent);
-    background: color-mix(in srgb, var(--gold) 10%, transparent);
-  }
-  h1 { font-size: clamp(32px, 4.4vw, 56px); line-height: 1.1; margin: 12px 0 10px; font-weight: 800; letter-spacing: -.02em; }
-  h1 span { color: var(--gold); }
-  .lead { font-size: 16px; color: var(--muted); margin: 0 0 20px; max-width: 34em; }
-  .actions { display: flex; flex-wrap: wrap; gap: 10px; }
-  .btn {
-    display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 999px;
-    font-weight: 600; text-decoration: none; transition: transform .15s;
-  }
+  /* Shared */
+  .card { background: var(--card); border: 1px solid var(--card-border); border-radius: 18px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; border-radius: 999px;
+         font-weight: 600; text-decoration: none; transition: transform .15s; border: 0; cursor: pointer; font-family: inherit; font-size: 15px; }
   .btn svg { width: 18px; height: 18px; fill: currentColor; }
   .btn.primary { background: var(--gold); color: var(--on-gold); }
-  .btn.secondary { background: var(--card); border: 1px solid var(--card-border); }
+  .btn.secondary { background: var(--card); border: 1px solid var(--card-border); color: var(--text); }
   .btn:hover { transform: translateY(-2px); }
-  .fine { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
+  .eyebrow { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); }
+  h1, h2, h3 { letter-spacing: -.02em; }
+  h2 { font-size: clamp(26px, 3vw, 38px); line-height: 1.15; margin: 8px 0 12px; font-weight: 800; }
+  .sub { color: var(--muted); font-size: 16px; max-width: 40em; margin: 0; }
+  section { padding: clamp(56px, 7vw, 104px) 0 0; scroll-margin-top: 40px; }
+  .head { margin-bottom: 32px; }
+  .muted { color: var(--muted); }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+          background: color-mix(in srgb, var(--c, var(--gold)) 16%, transparent); color: var(--c, var(--gold)); }
 
-  /* Preview: a copy of the app's Wishes card (pity_meter). */
-  .preview { padding: 18px; display: grid; gap: 12px; }
-  .preview-head { display: flex; align-items: center; gap: 10px; font-weight: 600; }
-  .preview-head img { width: 32px; height: 32px; border-radius: 10px; }
-  .preview-head small { display: block; font-weight: 400; color: var(--muted); font-size: 13px; }
-  .meter { display: grid; gap: 4px; font-size: 13px; }
-  .meter div:first-child { display: flex; justify-content: space-between; }
-  .meter b { font-weight: 600; }
+  /* Hero: pitch on top, the app window full width below so it keeps the app's proportions. */
+  .hero { padding: clamp(40px, 6vw, 96px) 0 0; display: grid; gap: clamp(32px, 4vw, 56px); }
+  .hero-text { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px 48px; align-items: end; }
+  .badge { display: inline-flex; gap: 8px; align-items: center; padding: 4px 12px; border-radius: 999px;
+           font-size: 12px; font-weight: 600; color: var(--gold); border: 1px solid color-mix(in srgb, var(--gold) 40%, transparent);
+           background: color-mix(in srgb, var(--gold) 10%, transparent); }
+  h1 { font-size: clamp(36px, 5vw, 72px); line-height: 1.05; margin: 16px 0 0; font-weight: 800; }
+  h1 span { color: var(--gold); }
+  .lead { font-size: clamp(16px, 1.3vw, 19px); color: var(--muted); margin: 0 0 24px; max-width: 32em; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .fine { margin: 14px 0 0; font-size: 13px; color: var(--muted); }
+
+  /* App window: a copy of the PC Dashboard (title_bar_for, NavigationRail, today_view in teyvat/gui.py),
+     always in the app's dark Classic theme. */
+  .ms { font-family: "Material Symbols Rounded"; font-weight: normal; font-style: normal; line-height: 1; letter-spacing: normal;
+        text-transform: none; white-space: nowrap; direction: ltr; -webkit-font-smoothing: antialiased; font-size: 24px;
+        font-variation-settings: "FILL" 0; user-select: none; }
+  .ms.fill { font-variation-settings: "FILL" 1; }
+  .window { --s: #0E1020; --c1: #171A2E; --c2: #1F2340; --c3: #272C4F; --t: #ECE8F4; --m: #BDBAD0;
+            container-type: inline-size; overflow: hidden; border-radius: 14px; border: 1px solid #2C3155;
+            background: var(--s); color: var(--t); box-shadow: 0 30px 80px rgba(0,0,0,.4); font-size: 14px; }
+  .titlebar { display: flex; align-items: center; height: 36px; padding: 0 12px 0 16px; background: var(--c1); font-size: 12px; color: var(--m); }
+  .titlebar span { margin-right: auto; }
+  .titlebar i { width: 14px; height: 14px; border-radius: 50%; margin-left: 8px; }
+  .app { display: grid; grid-template-columns: 210px 1fr; gap: 32px; }
+  .rail { background: var(--c1); padding: 12px 12px 16px; display: flex; flex-direction: column; min-height: 100%; }
+  .rail-brand { display: flex; gap: 12px; align-items: center; padding: 0 0 24px 12px; }
+  .logo { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #1B1608;
+          background: linear-gradient(90deg, #E6C07B, #C9965A); }
+  .logo .ms { font-size: 22px; }
+  .rail-brand b { display: block; font-size: 20px; line-height: 1.2; }
+  .rail-brand small { color: var(--m); font-size: 13px; }
+  .dest { display: flex; align-items: center; gap: 12px; height: 44px; font-size: 13px; font-weight: 500; }
+  .dest .ms { width: 56px; height: 32px; border-radius: 16px; display: grid; place-items: center; color: var(--m); }
+  .dest.on .ms { background: #3B4256; color: var(--t); }
+  .rail-foot { margin-top: auto; padding-top: 24px; display: grid; justify-items: center; gap: 8px; font-size: 12px; color: var(--m); }
+  .chip { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; background: var(--c2); color: var(--t); font-size: 13px; font-weight: 500; }
+  .chip i { width: 8px; height: 8px; border-radius: 50%; background: #7BD4A8; }
+  .made { display: flex; align-items: center; gap: 6px; }
+  .made .ms { font-size: 14px; }
+  .dash { padding: 16px 32px 24px 0; display: grid; gap: 16px; align-content: start; }
+  .dash h4 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -.01em; line-height: 1.2; }
+  .dash > p, .wm { margin: 0; color: var(--m); }
+  .dash-cols { display: grid; grid-template-columns: 5fr 7fr; gap: 16px; align-items: start; }
+  .dash-cols > div { display: grid; gap: 16px; min-width: 0; }
+  .wcard { background: var(--c1); border-radius: 20px; padding: 20px; display: grid; gap: 12px; }
+  .wcard-head { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; }
+  .wcard-head .ms { font-size: 20px; color: #E6C07B; }
+  .checkin { border-radius: 24px; padding: 24px; display: grid; gap: 12px; background: linear-gradient(135deg, #3A2F5C, #1F2340); }
+  .checkin-row { display: flex; align-items: center; gap: 16px; }
+  .checkin-ico { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: #A8C7FA; color: #1B2A44; flex: none; }
+  .checkin-ico .ms { font-size: 28px; }
+  .checkin b { display: block; font-size: 22px; line-height: 1.25; }
+  .field { height: 96px; border-radius: 14px; border: 1px solid #8A8FB0; background: var(--c3); padding: 12px 16px; color: var(--m); font-size: 16px; }
+  .tonal { justify-self: start; display: flex; align-items: center; gap: 8px; padding: 0 20px 0 16px; height: 32px; border-radius: 16px;
+           background: #3B4256; font-size: 14px; font-weight: 500; }
+  .tonal .ms { font-size: 18px; }
+  .cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+  .day { border-radius: 12px; background: var(--c2); padding: 6px 4px 4px; display: grid; justify-items: center; gap: 2px; font-size: 11px; color: var(--m); }
+  .day img { width: 36px; height: 36px; object-fit: contain; }
+  .day b { font-size: 12px; font-weight: 600; color: var(--t); }
+  .day .ms { font-size: 15px; color: #7BD4A8; height: 15px; }
+  .day.done { opacity: .45; }
+  .day.today { opacity: 1; outline: 2px solid #7BD4A8; outline-offset: -2px; }
+  @container (max-width: 1040px) {
+    .app { grid-template-columns: 72px 1fr; gap: 24px; }
+    .rail-brand { padding-left: 4px; } .rail-brand div, .dest span:last-child, .rail-foot { display: none; }
+    .dash { padding-right: 24px; }
+  }
+  @container (max-width: 760px) {
+    .app { grid-template-columns: 1fr; }
+    .rail { display: none; }
+    .dash { padding: 16px; }
+    .dash-cols { grid-template-columns: 1fr; }
+    .dash h4 { font-size: 22px; }
+  }
+  @container (max-width: 560px) {  /* phone calendar: five per row, like the app on mobile */
+    .cal { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+  }
+
+  .row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .tile { padding: 10px 12px; border-radius: 12px; background: var(--card-2); }
+  .tile small { display: block; font-size: 12px; color: var(--muted); }
+  .tile b { font-size: 18px; }
+
+  /* Pity meters */
+  .meter { display: grid; gap: 6px; font-size: 13px; }
+  .meter > div:first-child { display: flex; gap: 4px; align-items: baseline; }
+  .meter > div:first-child span:first-child { flex: 1; color: var(--muted); }
+  .meter b { font-size: 16px; }
   .track { height: 6px; border-radius: 4px; background: var(--track); overflow: hidden; }
   .track i { display: block; height: 100%; border-radius: 4px; }
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .stat { padding: 8px; border-radius: 12px; background: var(--card); text-align: center; }
-  .stat b { display: block; font-size: 18px; }
-  .stat span { font-size: 12px; color: var(--muted); }
 
-  h2 { font-size: 20px; margin: 0 0 12px; letter-spacing: -.01em; }
-  section { padding-bottom: 32px; }
-  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
-  .feature { padding: 14px 16px; display: grid; grid-template-columns: auto 1fr; column-gap: 12px; }
-  .feature .ico {
-    grid-row: span 2; width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; font-size: 16px;
-    background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c);
-  }
-  .feature h3 { margin: 0; font-size: 15px; }
-  .feature p { margin: 0; font-size: 13px; color: var(--muted); }
+  /* Feature spotlights */
+  .spot { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(28px, 5vw, 80px); align-items: center; }
+  .spot + .spot { margin-top: clamp(48px, 6vw, 96px); }
+  .spot.flip > :first-child { order: 2; }
+  .hero > *, .hero-text > *, .spot > * { min-width: 0; }
+  .spot ul { list-style: none; padding: 0; margin: 20px 0 0; display: grid; gap: 10px; }
+  .spot li { display: flex; gap: 10px; color: var(--muted); }
+  .spot li::before { content: "✦"; color: var(--gold); }
+  .demo { padding: 20px; display: grid; gap: 14px; }
+  .demo-head { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .demo-head .pill { margin-left: auto; }
 
-  .source { padding: 16px; display: grid; gap: 10px; min-width: 0; }
-  .source p { margin: 0; color: var(--muted); font-size: 14px; }
+  .scal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: clamp(4px, 1vw, 8px); }
+
+  .sday { aspect-ratio: 1; border-radius: 12px; background: var(--card-2); display: grid; place-items: center; align-content: center;
+         font-size: 11px; color: var(--muted); gap: 2px; position: relative; }
+  .sday b { font-size: 16px; color: var(--text); }
+  .sday.done { opacity: .55; }
+  .sday.done::after { content: "✓"; position: absolute; top: 4px; right: 6px; color: var(--won); font-weight: 700; }
+  .sday.today { outline: 2px solid var(--gold); }
+
+  .codes { display: grid; gap: 8px; }
+  .code { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px; background: var(--card-2); font-size: 14px; }
+  .code code { font-weight: 600; letter-spacing: .04em; }
+  .code .pill { margin-left: auto; }
+
+  .timeline { display: grid; gap: 10px; }
+  .ev, .ev-axis { display: grid; grid-template-columns: 130px 1fr; gap: 12px; align-items: center; font-size: 13px; }
+  .ev .bar { height: 22px; border-radius: 6px; background: var(--c); margin-left: var(--s); width: var(--w);
+             font-size: 11px; font-weight: 600; color: #1B1608; padding: 0 8px; line-height: 22px; white-space: nowrap; overflow: hidden; }
+  .ev-axis { font-size: 11px; color: var(--muted); }
+  .ev-axis div { display: flex; justify-content: space-between; }
+
+  .chars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .char { border-radius: 12px; overflow: hidden; background: var(--card-2); font-size: 12px; }
+  .char img { width: 100%; aspect-ratio: 1; object-fit: cover; background: linear-gradient(180deg, #9C6B3A, #C9965A); }
+  .char.r4 img { background: linear-gradient(180deg, #5E4A8C, #8A6CC0); }
+  .char div { padding: 6px 4px; display: flex; justify-content: center; align-items: center; gap: 6px; }
+  .char .el { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+
+  .sync { display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: center; text-align: center; }
+  .device { padding: 16px; border-radius: 14px; background: var(--card-2); font-size: 13px; color: var(--muted); }
+  .device b { display: block; font-size: 15px; color: var(--text); margin-bottom: 4px; }
+  .pin { font-size: 26px; font-weight: 800; letter-spacing: .25em; color: var(--gold); margin-top: 6px; }
+  .arrow { font-size: 22px; color: var(--gold); }
+
+  /* Card grids */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+  .feature { padding: 20px; }
+  .feature .ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-size: 18px; margin-bottom: 14px;
+                  background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); }
+  .feature h3 { margin: 0 0 6px; font-size: 16px; }
+  .feature p { margin: 0; font-size: 14px; color: var(--muted); }
+
+  .dl { padding: 24px; display: grid; gap: 14px; grid-template-rows: auto auto 1fr auto; }
+  .dl h3 { margin: 0; font-size: 20px; }
+  .dl p { margin: 0; color: var(--muted); font-size: 14px; }
+  .dl .btn { justify-content: center; }
+  .dl .os { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); }
+  .dl .os svg { width: 24px; height: 24px; fill: currentColor; }
   .cmd { display: flex; gap: 8px; align-items: center; background: var(--track); border-radius: 12px; padding: 8px 8px 8px 14px; }
   .cmd code { flex: 1; min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
-  .cmd button {
-    border: 0; border-radius: 8px; padding: 6px 12px; font: 600 13px Inter, sans-serif; cursor: pointer;
-    background: var(--gold); color: var(--on-gold);
+  .cmd button { border: 0; border-radius: 8px; padding: 6px 12px; font: 600 13px Inter, sans-serif; cursor: pointer; background: var(--gold); color: var(--on-gold); }
+
+  .faq { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 12px; align-items: start; }
+  details { padding: 16px 20px; }
+  summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; color: var(--gold); font-size: 20px; line-height: 1; }
+  details[open] summary::after { content: "–"; }
+  details p { margin: 10px 0 0; color: var(--muted); font-size: 14px; }
+
+  /* Closing call to action: the app's hero gradient, always dark like in the app. */
+  .cta { margin-top: clamp(56px, 7vw, 104px); padding: clamp(32px, 5vw, 64px); border-radius: 24px; text-align: center; color: #ECE8F4;
+         background: linear-gradient(135deg, #3A2F5C, #1F2340); border: 1px solid #2C3155; }
+  .cta h2 { margin-top: 0; }
+  .cta p { color: #BDBAD0; margin: 0 auto 24px; max-width: 32em; }
+  .cta .actions { justify-content: center; }
+  .cta .btn.primary { background: #E6C07B; color: #1B1608; }
+  .cta .btn.secondary { background: #171A2E; border-color: #2C3155; color: #ECE8F4; }
+
+  footer { margin-top: 56px; padding: 24px 0 32px; border-top: 1px solid var(--card-border); font-size: 14px; color: var(--muted); }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; }
+  footer .brand { color: var(--text); font-size: 15px; margin-right: auto; }
+  footer .brand img { width: 24px; height: 24px; }
+
+  @media (max-width: 960px) {
+    .hero-text, .spot { grid-template-columns: 1fr; }
+    .spot.flip > :first-child { order: 0; }
+    .links { display: none; }
+    .nav-cta { margin-left: auto; }
   }
-
-  footer { padding: 20px 0 28px; text-align: center; font-size: 14px; color: var(--muted); border-top: 1px solid var(--card-border); }
-
-  @media (max-width: 820px) {
-    .hero { grid-template-columns: 1fr; gap: 24px; padding: 16px 0 32px; }
-    .btn { flex: 1 1 100%; justify-content: center; }
+  @media (max-width: 560px) {
+    .app { grid-template-columns: 1fr; }
+    .rail { display: none; }
+    .actions .btn { flex: 1 1 100%; justify-content: center; }
+    .faq { grid-template-columns: 1fr; }
+    .chars { gap: 6px; }
+    .sday { font-size: 9px; } .sday b { font-size: 13px; } .sday.done::after { top: 1px; right: 3px; font-size: 10px; }
+    .ev, .ev-axis { grid-template-columns: 90px 1fr; }
+    .sync { grid-template-columns: 1fr; } .arrow { transform: rotate(90deg); }
   }
 </style>
 </head>
 <body>
-<main>
-  <nav>
-    <img src="https://raw.githubusercontent.com/Shaiyon69/teyvault/main/assets/icon.png" alt="">
-    Teyvault
-    <a class="gh" href="https://github.com/Shaiyon69/teyvault">GitHub ↗</a>
-  </nav>
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#"><img src="https://raw.githubusercontent.com/Shaiyon69/teyvault/main/assets/icon.png" alt="">Teyvault</a>
+    <div class="links">
+      <a href="#features">Features</a><a href="#safety">Safety</a><a href="#download">Download</a><a href="#faq">FAQ</a>
+      <a href="https://github.com/Shaiyon69/teyvault">GitHub ↗</a>
+    </div>
+    <a class="btn primary nav-cta" href="#download">Download</a>
+  </div>
+</nav>
 
+<main class="wrap">
   <header class="hero">
+    <div class="hero-text">
     <div>
-      <span class="badge">✦ Free and open source</span>
-      <h1>Your Genshin <span>companion</span></h1>
-      <p class="lead">Daily check-in, promo codes and your full wish history with pity and 50/50 stats, in one app for PC and phone.</p>
+      <span class="badge">✦ Free and open source · No ads</span>
+      <h1>Everything Teyvat, <span>one vault</span></h1>
+    </div>
+    <div>
+      <p class="lead">Teyvault claims your daily HoYoLAB check-in, redeems promo codes and tracks every wish with pity and 50/50 stats. One app for PC and phone.</p>
       <div class="actions">
         <a class="btn primary" href="https://github.com/Shaiyon69/teyvault/releases/latest/download/Teyvault-Setup.exe">
           <svg viewBox="0 0 24 24"><path d="M3 5.5 10 4.5v7H3zm8-1.1L21 3v8.5H11zM3 12.5h7v7l-7-1zm8 0h10V21l-10-1.4z"/></svg>
@@ -125,54 +287,283 @@
           Android APK
         </a>
       </div>
-      <p class="fine">Windows 10/11 · Android · Global servers only</p>
+      <p class="fine">Windows 10/11 · Android · Global servers (America, Europe, Asia, TW/HK/MO)</p>
+    </div>
     </div>
 
-    <div class="glass preview" aria-hidden="true">
-      <div class="preview-head">
-        <img src="https://raw.githubusercontent.com/Shaiyon69/teyvault/main/assets/icon.png" alt="">
-        <div>Wish pity<small>Character Event · Weapon Event · Standard</small></div>
-      </div>
-      <div class="meter"><div><span>Character Event</span><b style="color:var(--lost)">76 / 90</b></div><div class="track"><i style="width:84%;background:var(--lost)"></i></div></div>
-      <div class="meter"><div><span>Weapon Event</span><b style="color:var(--gold)">48 / 80</b></div><div class="track"><i style="width:60%;background:var(--gold)"></i></div></div>
-      <div class="meter"><div><span>Standard</span><b style="color:var(--won)">21 / 90</b></div><div class="track"><i style="width:23%;background:var(--won)"></i></div></div>
-      <div class="stats">
-        <div class="stat"><b style="color:var(--won)">7</b><span>50/50 won</span></div>
-        <div class="stat"><b style="color:var(--lost)">3</b><span>50/50 lost</span></div>
-        <div class="stat"><b style="color:var(--gold)">62</b><span>avg 5★ pity</span></div>
+    <div class="window" aria-hidden="true">
+      <div class="titlebar"><span>Teyvault</span><i style="background:#FEBC2E"></i><i style="background:#28C840"></i><i style="background:#FF5F57"></i></div>
+      <div class="app">
+        <div class="rail">
+          <div class="rail-brand"><div class="logo"><span class="ms fill">auto_stories</span></div><div><b>Teyvault</b><small>Sun, 04 Oct</small></div></div>
+            <div class="dest on"><span class="ms fill">dashboard</span><span>Dashboard</span></div>
+            <div class="dest"><span class="ms">view_timeline</span><span>Events</span></div>
+            <div class="dest"><span class="ms">auto_awesome</span><span>Wishes</span></div>
+            <div class="dest"><span class="ms">map</span><span>World</span></div>
+            <div class="dest"><span class="ms">group</span><span>Characters</span></div>
+            <div class="dest"><span class="ms">menu_book</span><span>Wiki</span></div>
+            <div class="dest"><span class="ms">person</span><span>Account</span></div>
+            <div class="dest"><span class="ms">settings</span><span>Settings</span></div>
+          <div class="rail-foot"><div class="chip"><i></i>Signed in</div><div class="made"><span class="ms">code</span>Made by Shaiyon69</div></div>
+        </div>
+        <div class="dash">
+          <div><h4>Dashboard</h4><p class="wm">Daily check-in and promo codes.</p></div>
+          <div class="dash-cols">
+            <div>
+              <div class="checkin">
+                <div class="checkin-row"><div class="checkin-ico"><span class="ms">check</span></div><div><b>Checked in today</b><span class="wm">Last check-in: 2026-10-04</span></div></div>
+                <p class="wm">Teyvault checks in for you once a day when the app opens.</p>
+              </div>
+              <div class="wcard">
+                <div class="wcard-head"><span class="ms">redeem</span>Redeem codes</div>
+                <p class="wm">Paste codes from livestreams or events. One per line.</p>
+                <div class="field">One code per line</div>
+                <div class="tonal"><span class="ms">redeem</span>Redeem</div>
+              </div>
+            </div>
+            <div class="wcard">
+              <div class="wcard-head"><span class="ms">calendar_month</span>Daily rewards</div>
+              <p class="wm">October: 4 of 31 claimed</p>
+              <div class="cal">
+              <div class="day done"><span class="ms fill">check_circle</span><img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/items/adventurers_experience.png" alt=""><b>×3</b></div>
+              <div class="day done"><span class="ms fill">check_circle</span><img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/items/fine_enhancement_ore.png" alt=""><b>×3</b></div>
+              <div class="day done"><span class="ms fill">check_circle</span><img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/mora.png" alt=""><b>×5,000</b></div>
+              <div class="day done today"><span class="ms fill">check_circle</span><img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/primogem.png" alt=""><b>×20</b></div>
+              <div class="day">Day 5<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/items/mystic_enhancement_ore.png" alt=""><b>×3</b></div>
+              <div class="day">Day 6<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/items/adventurers_experience.png" alt=""><b>×2</b></div>
+              <div class="day">Day 7<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/mora.png" alt=""><b>×8,000</b></div>
+              <div class="day">Day 8<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/items/adventurers_experience.png" alt=""><b>×3</b></div>
+              <div class="day">Day 9<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/items/fine_enhancement_ore.png" alt=""><b>×3</b></div>
+              <div class="day">Day 10<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/mora.png" alt=""><b>×5,000</b></div>
+              <div class="day">Day 11<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/primogem.png" alt=""><b>×20</b></div>
+              <div class="day">Day 12<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/items/mystic_enhancement_ore.png" alt=""><b>×3</b></div>
+              <div class="day">Day 13<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/items/adventurers_experience.png" alt=""><b>×2</b></div>
+              <div class="day">Day 14<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/mora.png" alt=""><b>×8,000</b></div>
+              <div class="day">Day 15<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/items/adventurers_experience.png" alt=""><b>×5</b></div>
+              <div class="day">Day 16<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/items/fine_enhancement_ore.png" alt=""><b>×5</b></div>
+              <div class="day">Day 17<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/mora.png" alt=""><b>×5,000</b></div>
+              <div class="day">Day 18<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/primogem.png" alt=""><b>×20</b></div>
+              <div class="day">Day 19<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/items/mystic_enhancement_ore.png" alt=""><b>×3</b></div>
+              <div class="day">Day 20<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/items/adventurers_experience.png" alt=""><b>×3</b></div>
+              <div class="day">Day 21<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/mora.png" alt=""><b>×8,000</b></div>
+              <div class="day">Day 22<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/items/adventurers_experience.png" alt=""><b>×5</b></div>
+              <div class="day">Day 23<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/items/fine_enhancement_ore.png" alt=""><b>×5</b></div>
+              <div class="day">Day 24<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/mora.png" alt=""><b>×5,000</b></div>
+              <div class="day">Day 25<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/items/heros_wit.png" alt=""><b>×3</b></div>
+              <div class="day">Day 26<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/items/mystic_enhancement_ore.png" alt=""><b>×3</b></div>
+              <div class="day">Day 27<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/items/adventurers_experience.png" alt=""><b>×3</b></div>
+              <div class="day">Day 28<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/items/heros_wit.png" alt=""><b>×3</b></div>
+              <div class="day">Day 29<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/mora.png" alt=""><b>×5,000</b></div>
+              <div class="day">Day 30<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/mora.png" alt=""><b>×5,000</b></div>
+              <div class="day">Day 31<img src="https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/mora.png" alt=""><b>×5,000</b></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </header>
 
-  <section>
-    <h2>Everything in one place</h2>
-    <div class="features">
-      <div class="glass feature" style="--c:var(--gold)"><div class="ico">✓</div><h3>Daily check-in</h3><p>Claims your HoYoLAB reward every day, automatically if you want.</p></div>
-      <div class="glass feature" style="--c:var(--purple)"><div class="ico">✦</div><h3>Wish history</h3><p>Pity, 50/50 record and every 5★, with UIGF and Excel import/export.</p></div>
-      <div class="glass feature" style="--c:var(--won)"><div class="ico">🎁</div><h3>Promo codes</h3><p>Redeem codes straight to your account without opening the game.</p></div>
-      <div class="glass feature" style="--c:var(--lost)"><div class="ico">◷</div><h3>Events and banners</h3><p>What's running now, what's next, and the current banners.</p></div>
-      <div class="glass feature" style="--c:var(--gold)"><div class="ico">⚔</div><h3>Characters and world</h3><p>Your builds, exploration progress and a full in-app wiki.</p></div>
-      <div class="glass feature" style="--c:var(--purple)"><div class="ico">⇄</div><h3>Phone sync</h3><p>Send your wish history from PC to phone over Wi-Fi.</p></div>
-    </div>
-  </section>
-
-  <section>
-    <h2>Run from source</h2>
-    <div class="glass source">
-      <p>CLI and GUI on any OS with Python 3.11+.</p>
-      <div class="cmd">
-        <code id="cmd">pip install git+https://github.com/Shaiyon69/teyvault</code>
-        <button onclick="navigator.clipboard.writeText(cmd.textContent).then(() => this.textContent = 'Copied')">Copy</button>
+  <section id="features">
+    <div class="spot">
+      <div>
+        <span class="eyebrow">Wish history</span>
+        <h2>Know exactly where your pity stands</h2>
+        <p class="sub">Teyvault reads your wish link from the game's cache, pages your whole history and keeps it in a local database. It never touches the game itself.</p>
+        <ul>
+          <li>Pity for every banner, including the second character banner</li>
+          <li>50/50 record, guarantee status and average 5★ pity</li>
+          <li>UIGF v2–v4 and Excel import/export, paimon.moe sheets too</li>
+        </ul>
       </div>
-      <p>Then run <code>teyvault-gui</code> or <code>teyvault</code>.</p>
+      <div class="card demo" aria-hidden="true">
+        <div class="demo-head">Pity <span class="pill" style="--c:var(--won)">Synced</span></div>
+        <div class="meter"><div><span>Character Event</span><b style="color:var(--lost)">76</b><span class="muted">/ 90</span></div><div class="track"><i style="width:84%;background:var(--lost)"></i></div></div>
+        <div class="meter"><div><span>Weapon Event</span><b style="color:var(--gold)">48</b><span class="muted">/ 80</span></div><div class="track"><i style="width:60%;background:var(--gold)"></i></div></div>
+        <div class="meter"><div><span>Standard</span><b style="color:var(--won)">21</b><span class="muted">/ 90</span></div><div class="track"><i style="width:23%;background:var(--won)"></i></div></div>
+        <div class="row3">
+          <div class="tile"><small>50/50 won</small><b style="color:var(--won)">7</b></div>
+          <div class="tile"><small>50/50 lost</small><b style="color:var(--lost)">3</b></div>
+          <div class="tile"><small>Avg 5★ pity</small><b style="color:var(--gold)">62</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spot flip">
+      <div>
+        <span class="eyebrow">Daily check-in</span>
+        <h2>Never miss a login reward</h2>
+        <p class="sub">Sign in once and Teyvault claims your HoYoLAB daily reward when it opens, with the month's calendar and the real reward icons.</p>
+        <ul>
+          <li>Automatic check-in, which you can turn off in Settings</li>
+          <li>One claim a day, never more</li>
+        </ul>
+      </div>
+      <div class="card demo" aria-hidden="true">
+        <div class="demo-head">October check-in <span class="pill" style="--c:var(--won)">4 / 31</span></div>
+        <div class="scal">
+          <div class="sday done"><b>20</b>Primo</div><div class="sday done"><b>2</b>Hero's</div><div class="sday done"><b>3</b>Mora</div>
+          <div class="sday done today"><b>20</b>Primo</div><div class="sday"><b>5</b>Ore</div><div class="sday"><b>3</b>Hero's</div><div class="sday"><b>20</b>Primo</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spot">
+      <div>
+        <span class="eyebrow">Promo codes</span>
+        <h2>Redeem codes without the game</h2>
+        <p class="sub">Paste one code or a whole livestream's worth. Teyvault redeems them to your account one at a time, spaced out the way the official page requires.</p>
+      </div>
+      <div class="card demo" aria-hidden="true">
+        <div class="demo-head">Redeem codes</div>
+        <div class="codes">
+          <div class="code"><code>GENSHINGIFT</code><span class="pill" style="--c:var(--won)">Redeemed</span></div>
+          <div class="code"><code>LIVESTREAM60</code><span class="pill" style="--c:var(--won)">Redeemed</span></div>
+          <div class="code"><code>OLDCODE2024</code><span class="pill" style="--c:var(--lost)">Expired</span></div>
+          <div class="code"><code>NEWVERSION61</code><span class="pill">Waiting 6 s</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spot flip">
+      <div>
+        <span class="eyebrow">Events and banners</span>
+        <h2>See what's running, and what's next</h2>
+        <p class="sub">A timeline of current and upcoming events in your server's time, plus the banners that are live right now.</p>
+      </div>
+      <div class="card demo" aria-hidden="true">
+        <div class="demo-head">Events</div>
+        <div class="timeline">
+          <div class="ev"><span>Character banner</span><div class="bar" style="--c:var(--gold);--s:0%;--w:62%">Phase 1</div></div>
+          <div class="ev"><span>Flagship event</span><div class="bar" style="--c:var(--purple);--s:12%;--w:58%">Ends in 18d</div></div>
+          <div class="ev"><span>Spiral Abyss</span><div class="bar" style="--c:var(--hydro);--s:0%;--w:40%">Resets in 9d</div></div>
+          <div class="ev"><span>Web event</span><div class="bar" style="--c:var(--won);--s:30%;--w:30%">Starts in 3d</div></div>
+          <div class="ev"><span>Character banner</span><div class="bar" style="--c:var(--lost);--s:62%;--w:38%">Phase 2</div></div>
+          <div class="ev-axis"><span></span><div><span>Today</span><span>+1 wk</span><span>+2 wk</span><span>+3 wk</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spot">
+      <div>
+        <span class="eyebrow">Characters, world and wiki</span>
+        <h2>Your account at a glance</h2>
+        <p class="sub">Builds, exploration progress and an in-app wiki of characters, weapons, artifacts and achievements, with tier ratings to sort by.</p>
+        <ul>
+          <li>Weapons, artifacts and talents for every character</li>
+          <li>Exploration and reputation for every region</li>
+          <li>Tick off achievements as you go</li>
+        </ul>
+      </div>
+      <div class="card demo" aria-hidden="true">
+        <div class="demo-head">Characters <span class="pill" style="--c:var(--purple)">68 owned</span></div>
+        <div class="chars">
+          <div class="char"><img src="https://enka.network/ui/UI_AvatarIcon_Neuvillette.png" alt=""><div><span class="el" style="--c:#5DB4F0"></span>Lv. 90</div></div>
+          <div class="char"><img src="https://enka.network/ui/UI_AvatarIcon_Kazuha.png" alt=""><div><span class="el" style="--c:#74D9C0"></span>Lv. 90</div></div>
+          <div class="char"><img src="https://enka.network/ui/UI_AvatarIcon_Hutao.png" alt=""><div><span class="el" style="--c:#F08A5D"></span>Lv. 90</div></div>
+          <div class="char r4"><img src="https://enka.network/ui/UI_AvatarIcon_Bennett.png" alt=""><div><span class="el" style="--c:#F08A5D"></span>Lv. 80</div></div>
+          <div class="char"><img src="https://enka.network/ui/UI_AvatarIcon_Yelan.png" alt=""><div><span class="el" style="--c:#5DB4F0"></span>Lv. 90</div></div>
+          <div class="char r4"><img src="https://enka.network/ui/UI_AvatarIcon_Xiangling.png" alt=""><div><span class="el" style="--c:#F08A5D"></span>Lv. 90</div></div>
+          <div class="char"><img src="https://enka.network/ui/UI_AvatarIcon_Zhongli.png" alt=""><div><span class="el" style="--c:#E6C07B"></span>Lv. 90</div></div>
+          <div class="char r4"><img src="https://enka.network/ui/UI_AvatarIcon_Xingqiu.png" alt=""><div><span class="el" style="--c:#5DB4F0"></span>Lv. 80</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spot flip">
+      <div>
+        <span class="eyebrow">Phone sync</span>
+        <h2>Take your history with you</h2>
+        <p class="sub">The game's wish link lives on your PC. Share your history from the PC app and pull it onto your phone over Wi-Fi with a one-time PIN. Only wishes are sent, never your login.</p>
+      </div>
+      <div class="card demo" aria-hidden="true">
+        <div class="sync">
+          <div class="device"><b>PC</b>Sharing on 192.168.1.20<div class="pin">482913</div></div>
+          <div class="arrow">→</div>
+          <div class="device"><b>Phone</b>1,284 wishes imported<div class="pin" style="color:var(--won)">✓</div></div>
+        </div>
+      </div>
     </div>
   </section>
 
-  <footer>
-    Made by <a href="https://github.com/Shaiyon69">Shaiyon69</a> ·
-    <a href="https://github.com/Shaiyon69/teyvault/releases">All releases</a> ·
-    Not affiliated with HoYoverse
-  </footer>
+  <section id="safety">
+    <div class="head">
+      <span class="eyebrow">Built to be safe</span>
+      <h2>Your account stays yours</h2>
+      <p class="sub">Teyvault only does what the official HoYoLAB pages do, at the same pace.</p>
+    </div>
+    <div class="grid">
+      <div class="card feature" style="--c:var(--gold)"><div class="ico">⚿</div><h3>Login in your OS keyring</h3><p>Your HoYoLAB cookies go in Windows Credential Manager, or the app's private storage on mobile. Never in the database, never shared.</p></div>
+      <div class="card feature" style="--c:var(--won)"><div class="ico">✓</div><h3>Official endpoints only</h3><p>Only the requests hoyolab.com and the in-game wish page make. No reading game memory, no injection.</p></div>
+      <div class="card feature" style="--c:var(--purple)"><div class="ico">◔</div><h3>Polite by design</h3><p>Requests go one at a time and spaced out. One check-in a day, with a cooldown between codes.</p></div>
+      <div class="card feature" style="--c:var(--hydro)"><div class="ico">⌂</div><h3>Local first</h3><p>Your wish history stays in a database on your device. No account, no server, no tracking.</p></div>
+    </div>
+  </section>
+
+  <section id="download">
+    <div class="head">
+      <span class="eyebrow">Download</span>
+      <h2>Get Teyvault</h2>
+      <p class="sub">Free, no sign-up. Wish history works without signing in; HoYoLAB sign-in unlocks check-in, codes and your account stats.</p>
+    </div>
+    <div class="grid">
+      <div class="card dl" style="--c:var(--hydro)">
+        <div class="os"><svg viewBox="0 0 24 24"><path d="M3 5.5 10 4.5v7H3zm8-1.1L21 3v8.5H11zM3 12.5h7v7l-7-1zm8 0h10V21l-10-1.4z"/></svg></div>
+        <h3>Windows</h3>
+        <p>Installer for Windows 10 and 11. Reads your wish history straight from the game.</p>
+        <a class="btn primary" href="https://github.com/Shaiyon69/teyvault/releases/latest/download/Teyvault-Setup.exe">Download installer</a>
+      </div>
+      <div class="card dl" style="--c:var(--won)">
+        <div class="os"><svg viewBox="0 0 24 24"><path d="M17.6 9.5 19.4 6.4a.5.5 0 0 0-.9-.5l-1.8 3.1A11 11 0 0 0 12 8a11 11 0 0 0-4.7 1L5.5 5.9a.5.5 0 0 0-.9.5l1.8 3.1A10 10 0 0 0 1.5 17h21a10 10 0 0 0-4.9-7.5zM7 14.3a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm10 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg></div>
+        <h3>Android</h3>
+        <p>Install the APK and allow installs from your browser. Sync wishes from your PC.</p>
+        <a class="btn primary" href="https://github.com/Shaiyon69/teyvault/releases/latest/download/Teyvault.apk">Download APK</a>
+      </div>
+      <div class="card dl" style="--c:var(--purple)">
+        <div class="os"><svg viewBox="0 0 24 24"><path d="M8.6 16.6 4 12l4.6-4.6L7.2 6 1.2 12l6 6zm6.8 0L20 12l-4.6-4.6L16.8 6l6 6-6 6z"/></svg></div>
+        <h3>From source</h3>
+        <p>CLI and GUI on any OS with Python 3.11+. Then run <code>teyvault-gui</code> or <code>teyvault</code>.</p>
+        <div class="cmd">
+          <code id="cmd">pip install git+https://github.com/Shaiyon69/teyvault</code>
+          <button onclick="navigator.clipboard.writeText(cmd.textContent).then(() => this.textContent = 'Copied')">Copy</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="head">
+      <span class="eyebrow">FAQ</span>
+      <h2>Questions</h2>
+    </div>
+    <div class="faq">
+      <details class="card"><summary>Can this get my account banned?</summary><p>Teyvault never touches the game client. It only reads the wish link the game already caches, and calls the same HoYoLAB endpoints your browser does, spaced out like a person would.</p></details>
+      <details class="card"><summary>Which servers does it support?</summary><p>All global servers: America, Europe, Asia and TW/HK/MO. Chinese mainland servers use a different platform and aren't supported.</p></details>
+      <details class="card"><summary>How do I get my wish history on Android?</summary><p>Open the wish history in-game on your PC, sync in the Windows app, then use Phone sync. Or import a UIGF or paimon.moe Excel export on the phone.</p></details>
+      <details class="card"><summary>Can I bring my history from paimon.moe or other trackers?</summary><p>Yes. Teyvault imports UIGF v2–v4 files and paimon.moe Excel exports, and replaces imported rows with the real ones once you sync.</p></details>
+      <details class="card"><summary>Why does sign-in ask for a captcha?</summary><p>HoYoLAB asks for a Geetest check on most sign-ins. Teyvault shows the same check the website does.</p></details>
+      <details class="card"><summary>Is it really free?</summary><p>Yes. No ads, no premium tier. The source is on GitHub.</p></details>
+    </div>
+  </section>
+
+  <div class="cta">
+    <h2>Open the vault</h2>
+    <p>Check-in, codes and every wish, without five browser tabs.</p>
+    <div class="actions">
+      <a class="btn primary" href="https://github.com/Shaiyon69/teyvault/releases/latest/download/Teyvault-Setup.exe">Download for Windows</a>
+      <a class="btn secondary" href="https://github.com/Shaiyon69/teyvault/releases/latest/download/Teyvault.apk">Android APK</a>
+    </div>
+  </div>
 </main>
+
+<footer>
+  <div class="wrap">
+    <span class="brand"><img src="https://raw.githubusercontent.com/Shaiyon69/teyvault/main/assets/icon.png" alt="">Teyvault</span>
+    <span>Made by <a href="https://github.com/Shaiyon69">Shaiyon69</a></span>
+    <a href="https://github.com/Shaiyon69/teyvault/releases">All releases</a>
+    <a href="https://github.com/Shaiyon69/teyvault">GitHub</a>
+    <span>Not affiliated with HoYoverse</span>
+  </div>
+</footer>
 </body>
 </html>
