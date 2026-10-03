@@ -133,6 +133,15 @@ class TestWiki(unittest.TestCase):
         self.assertEqual((got, fetched), ([1, 2], []))
         self.assertEqual(json.loads(db.get_meta(conn, "wiki:x"))["date"], datetime.date.today().isoformat())
 
+    def test_prefetch_entries_waits_only_after_a_download(self):
+        conn, sleeps = db.connect(":memory:"), []
+        page = {"name": "Lisa", "icon_url": "i", "desc": "", "modules": [{"name": "Talents", "components": [
+            {"component_id": "talent", "data": json.dumps({"list": [{"title": "T", "desc": "d", "icon_url": "t.png"}]})}]}]}
+        with mock.patch.object(wiki, "request", return_value={"data": {"page": page}}) as req:
+            self.assertEqual(wiki.prefetch_entries(conn, [1], sleeps.append), ["", "t.png"])
+            wiki.prefetch_entries(conn, [1], sleeps.append)  # cached this week: no request, no wait
+        self.assertEqual((req.call_count, len(sleeps)), (1, 1))
+
     def test_achievement_ticks_round_trip(self):
         conn = db.connect(":memory:")
         db.set_done(conn, 7, True)

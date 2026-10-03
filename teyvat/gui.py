@@ -1827,6 +1827,21 @@ def main(page: ft.Page):
         # Keep every character/weapon portrait on the device, so wishes and banners show them offline.
         wiki.cache_images(wiki.icon_urls())
         refresh_stats()  # redraw the wish history from the local copies
+        # The rest of the Wiki tab (lists and icons), so it opens offline too. Of the pages a tile opens,
+        # only characters are kept ahead of time; the others are fetched on first open.
+        for cat in ("Artifacts", "Enemies", "Collectibles", "Achievements"):
+            try:
+                if cat == "Achievements":
+                    wiki.achievements(db.connect())
+                else:
+                    wiki.cache_images(e["icon"] for e in wiki.entries(db.connect(), cat))
+            except Exception:
+                pass  # offline: whatever is cached stays
+        try:
+            conn = db.connect()
+            wiki.cache_images(wiki.prefetch_entries(conn, [e["id"] for e in wiki.entries(conn, "Characters")]))
+        except Exception:
+            pass
 
     page.run_thread(startup)
 

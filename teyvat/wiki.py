@@ -192,6 +192,22 @@ def entry(conn, entry_id, refresh=False) -> dict:
     return _cached(conn, f"wiki:entry:{entry_id}", fetch, refresh, days=7)
 
 
+def prefetch_entries(conn, ids, sleep=time.sleep) -> list[str]:
+    """Download wiki pages for offline reading, spaced like list pages; ones fetched this week cost no
+    request. Returns their image URLs for cache_images."""
+    urls = []
+    for i in ids:
+        before = db.get_meta(conn, f"wiki:entry:{i}")
+        try:
+            d = entry(conn, i)
+        except Exception:
+            continue  # offline or a broken page: it loads on open instead
+        urls += [d["image"]] + [x[2] for sec in d["sections"] for x in sec["rows"]]
+        if db.get_meta(conn, f"wiki:entry:{i}") != before:
+            sleep(PAGE_DELAY_S)
+    return urls
+
+
 def flatten_achievements(raw) -> list[dict]:
     """paimon.moe groups tiered achievements in a nested list; flatten them, keeping the category."""
     out = []
@@ -254,7 +270,8 @@ def event_times(e, region=None) -> tuple[datetime.datetime, datetime.datetime]:
 
 
 def _get(url) -> bytes:
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    # Wiki icon URLs can hold spaces or CJK ("Hu Tao_icon.png", "笼钓瓶一心.png"); urllib needs them escaped.
+    req = urllib.request.Request(urllib.parse.quote(url, safe=":/?&=%#+,;@~"), headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=20, context=SSL_CONTEXT) as resp:
         return resp.read()
 
