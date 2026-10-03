@@ -1,7 +1,9 @@
 """Game catalogue for the Wiki tab: HoYoLAB's own wiki (characters, weapons, artifacts, enemies) and
-paimon.moe's achievement list. Both are public, fetched page by page and cached in the `meta` table."""
+paimon.moe's achievement list and event timeline. All public, fetched page by page and cached in the `meta` table."""
+import ast
 import datetime
 import json
+import re
 import time
 import urllib.request
 
@@ -11,6 +13,9 @@ from teyvat.hoyolab import SSL_CONTEXT, UA, request
 WIKI_LIST_URL = "https://sg-wiki-api.hoyolab.com/hoyowiki/genshin/wapi/get_entry_page_list"
 WIKI_ENTRY_URL = "https://wiki.hoyolab.com/pc/genshin/entry/{}"
 ACHIEVEMENTS_URL = "https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/src/data/achievement/en.json"
+TIMELINE_URL = "https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/src/data/timeline.js"
+# Each server's clock (fixed offsets, no daylight saving).
+SERVER_UTC = {"os_usa": -5, "os_euro": 1, "os_asia": 8, "os_cht": 8}
 MENUS = {"Characters": 2, "Weapons": 4, "Artifacts": 5, "Enemies": 7}
 PAGE_SIZE = 50  # the API rejects more
 PAGE_DELAY_S = 1
@@ -28,10 +33,10 @@ def label(key) -> str:
     return LABELS.get(key) or key.replace("_", " ").title()
 
 
-def _cached(conn, key, fetch, refresh=False):
-    """Cached JSON under meta[key]: {"date": iso, "data": ...}, refetched after CACHE_DAYS."""
+def _cached(conn, key, fetch, refresh=False, days=CACHE_DAYS):
+    """Cached JSON under meta[key]: {"date": iso, "data": ...}, refetched after `days`."""
     hit = json.loads(db.get_meta(conn, key) or "null")
-    fresh = hit and datetime.date.fromisoformat(hit["date"]) > datetime.date.today() - datetime.timedelta(CACHE_DAYS)
+    fresh = hit and datetime.date.fromisoformat(hit["date"]) > datetime.date.today() - datetime.timedelta(days)
     if hit and fresh and not refresh:
         return hit["data"]
     try:
@@ -108,11 +113,38 @@ def achievements(conn, refresh=False) -> list[dict]:
                    lambda: flatten_achievements(_get_json(ACHIEVEMENTS_URL)), refresh)
 
 
-def _get_json(url):
-    """Plain JSON file (no HoYoLAB retcode envelope)."""
+def parse_timeline(js) -> list[list[dict]]:
+    """paimon.moe's timeline.js (a JS module, not JSON) -> rows of events; events in a row never overlap.
+    Prettier puts every key at the start of a line, so quoting those makes it a Python literal."""
+    # NOTE: breaks if paimon.moe adds JS expressions (e.g. `'a' + 'b'`); then literal_eval raises
+    # and the stale cache is kept.
+    body = js[js.index("["):js.rindex("]") + 1]
+    body = re.sub(r"^(\s*)(\w+):", r'\1"\2":', body, flags=re.M)
+    body = re.sub(r'(":\s*)(true|false)(?=,?$)', lambda m: m[1] + m[2].title(), body, flags=re.M)
+    return ast.literal_eval(body)
+
+
+def timeline(conn, refresh=False) -> list[list[dict]]:
+    return _cached(conn, "wiki:timeline", lambda: parse_timeline(_get(TIMELINE_URL).decode()), refresh, days=1)
+
+
+def event_times(e, region=None) -> tuple[datetime.datetime, datetime.datetime]:
+    """Aware start/end. paimon.moe writes times in UTC+8, except `timezoneDependent` events
+    (patch-day starts, resets), which follow the player's own server clock."""
+    hours = SERVER_UTC.get(region, 8) if e.get("timezoneDependent") else 8
+    tz = datetime.timezone(datetime.timedelta(hours=hours))
+    return tuple(datetime.datetime.fromisoformat(e[k]).replace(tzinfo=tz) for k in ("start", "end"))
+
+
+def _get(url) -> bytes:
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=20, context=SSL_CONTEXT) as resp:
-        return json.load(resp)
+        return resp.read()
+
+
+def _get_json(url):
+    """Plain JSON file (no HoYoLAB retcode envelope)."""
+    return json.loads(_get(url))
 
 
 _icons = {}

@@ -72,7 +72,10 @@ COOKIE_HELP = (
 )
 # (label, icon, selected icon, one-line "what is this page for")
 SECTIONS = [
-    ("Today", ft.Icons.TODAY_OUTLINED, ft.Icons.TODAY_ROUNDED, "Daily check-in and promo codes."),
+    ("Dashboard", ft.Icons.DASHBOARD_OUTLINED, ft.Icons.DASHBOARD_ROUNDED,
+     "Daily check-in and promo codes."),
+    ("Events", ft.Icons.VIEW_TIMELINE_OUTLINED, ft.Icons.VIEW_TIMELINE_ROUNDED,
+     "What's running and what's next: events, banners, Spiral Abyss, Imaginarium Theater, Battle Pass."),
     ("Wishes", ft.Icons.AUTO_AWESOME_OUTLINED, ft.Icons.AUTO_AWESOME_ROUNDED, "Your pity, 50/50 record and 5★ history."),
     ("World", ft.Icons.MAP_OUTLINED, ft.Icons.MAP_ROUNDED, "Exploration progress and interactive maps."),
     ("Characters", ft.Icons.PEOPLE_OUTLINE, ft.Icons.PEOPLE_ROUNDED, "Your characters and their builds."),
@@ -85,7 +88,7 @@ SECTIONS = [
 
 SETTINGS = len(SECTIONS) - 1  # mobile reaches it from the app bar, not the bottom bar
 ACCOUNT = SETTINGS - 1  # mobile: the sign-in chip in the app bar
-WORLD, CHARACTERS, WIKI = 2, 3, 4
+EVENTS, WISHES, WORLD, CHARACTERS, WIKI = 1, 2, 3, 4, 5
 
 
 def use_light_palette():
@@ -207,6 +210,42 @@ def reward_tile(day, award, claimed, current):
         opacity=0.45 if claimed and not current else 1,
         border=ft.Border.all(2, WON if claimed else GOLD) if current else None,
         tooltip=f"Day {day}: {award['name']} ×{award['cnt']:,}" + (" (claimed)" if claimed else ""))
+
+
+def timeline_chart(rows, region, day_px=28, row_h=32):
+    """Gantt of paimon.moe's event rows, from a week ago to the last end (at most two months ahead).
+    Scrolls sideways; tap a bar for its HoYoLAB article."""
+    now = datetime.datetime.now().astimezone()
+    first = datetime.datetime.combine(now.date() - datetime.timedelta(7), datetime.time(), now.tzinfo)
+    rows = [[(e, *wiki.event_times(e, region)) for e in row] for row in rows]
+    rows = [r for r in ([x for x in row if x[2] > first] for row in rows) if r]
+    days = min(max([(x[2] - first).days + 1 for r in rows for x in r], default=21), 63)
+    width = days * day_px
+    pos = lambda dt: min(max((dt - first).total_seconds() / 86400 * day_px, 0), width)
+
+    header = ft.Row(spacing=0, controls=[
+        ft.Container(ft.Text(f"{d:%b}" if d.day == 1 or i == 0 else f"{d:%a}"[:2], text_align=ft.TextAlign.CENTER,
+                             spans=[ft.TextSpan(f"\n{d.day}", ft.TextStyle(weight=ft.FontWeight.BOLD))], size=11,
+                             color=ft.Colors.ON_PRIMARY if d == now.date() else ft.Colors.ON_SURFACE_VARIANT),
+                     width=day_px, height=36, alignment=ft.Alignment.CENTER, border_radius=8,
+                     bgcolor=ft.Colors.PRIMARY if d == now.date() else None)
+        for i, d in enumerate(first.date() + datetime.timedelta(n) for n in range(days))])
+    bars = []
+    for y, row in enumerate(rows):
+        for e, start, end in row:
+            x0 = pos(start)
+            when = f"{start.astimezone():%d %b %H:%M} – {end.astimezone():%d %b %H:%M} (your time)"
+            bars.append(ft.Container(
+                ft.Text(e["name"], size=12, weight=ft.FontWeight.W_600, color="#1A1A1A", no_wrap=True,
+                        overflow=ft.TextOverflow.ELLIPSIS),
+                left=x0, top=y * row_h, width=max(pos(end) - x0, 6), height=row_h - 6, bgcolor=e.get("color", GOLD),
+                border_radius=8, padding=ft.Padding.symmetric(horizontal=8), alignment=ft.Alignment.CENTER_LEFT,
+                opacity=0.4 if end < now else 1, url=e.get("url"),
+                tooltip="\n".join(x for x in (e["name"], when, e.get("description")) if x)))
+    height = max(len(rows) * row_h, row_h)
+    now_line = ft.Container(left=pos(now) - 1, top=0, width=2, height=height, bgcolor=ft.Colors.PRIMARY)
+    return ft.Row([ft.Column([header, ft.Stack(bars + [now_line], width=width, height=height)], spacing=8)],
+                  scroll=ft.ScrollMode.AUTO)
 
 
 def portrait(src, rarity, size, fallback=ft.Icons.PERSON_ROUNDED):
@@ -332,12 +371,14 @@ def main(page: ft.Page):
 
     def ensure_loaded(i):
         """Fetch a tab's data the first time it is opened, not all at startup (fewer requests, faster
-        first paint on phones). World/Characters wait until the game accounts are known."""
-        if i in loaded or i not in (WORLD, CHARACTERS, WIKI) or (i != WIKI and not bound_roles):
+        first paint on phones). World/Characters wait until the game accounts are known, and so do
+        Events when signed in (event times follow the account's server)."""
+        if (i in loaded or i not in (EVENTS, WORLD, CHARACTERS, WIKI) or (i in (WORLD, CHARACTERS) and not bound_roles)
+                or (i == EVENTS and not bound_roles and logged_in())):
             return
         loaded.add(i)
-        if i == WIKI:
-            page.run_thread(load_wiki)
+        if i in (EVENTS, WIKI):
+            page.run_thread(load_timeline if i == EVENTS else load_wiki)
         else:
             page.run_thread({WORLD: load_world, CHARACTERS: load_characters}[i], active_role())
 
@@ -381,7 +422,7 @@ def main(page: ft.Page):
         except vault.NotLoggedIn:
             return False
 
-    # --- Today tab ----------------------------------------------------------
+    # --- Dashboard tab ------------------------------------------------------
     checkin_icon = ft.Icon(ft.Icons.EVENT_AVAILABLE_ROUNDED, size=28, color=ft.Colors.ON_PRIMARY)
     checkin_title = ft.Text(size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.ON_SURFACE)
     checkin_detail = muted("")
@@ -478,6 +519,25 @@ def main(page: ft.Page):
             ft.Column([rewards_card], horizontal_alignment=STRETCH, col={"xs": 12, "lg": 7}),
         ], spacing=16, run_spacing=16, vertical_alignment=ft.CrossAxisAlignment.START),
     ], spacing=16, horizontal_alignment=STRETCH)
+
+    # --- Events tab ---------------------------------------------------------
+    timeline_body = ft.Column([muted("Loading events...")], horizontal_alignment=STRETCH)
+    timeline_card = card(muted("From paimon.moe, in your local time. Hover a bar for its dates, tap it for the "
+                               "HoYoLAB article. Scroll sideways for what's coming."),
+                         timeline_body, title="Event timeline", icon=ft.Icons.VIEW_TIMELINE_ROUNDED)
+
+    def load_timeline():
+        """Worker thread. Times follow the active game account's server (Asia's clock if signed out)."""
+        role = active_role()
+        try:
+            rows = wiki.timeline(db.connect())
+        except Exception as ex:
+            timeline_body.controls = [muted(f"Could not load the timeline: {ex}")]
+        else:
+            timeline_body.controls = [timeline_chart(rows, role and role["region"])]
+        page.update()
+
+    events_view = ft.Column([page_head(EVENTS), timeline_card], spacing=16, horizontal_alignment=STRETCH)
 
     # --- Wishes tab ---------------------------------------------------------
     url_field = ft.TextField(hint_text="Paste wish history link", border_radius=14, filled=True,
@@ -665,7 +725,7 @@ def main(page: ft.Page):
         link_input, sync_status, padding=ft.Padding.symmetric(horizontal=20, vertical=12))
 
     wishes_view = ft.Column([
-        page_head(1),
+        page_head(WISHES),
         sync_card,
         stats_view,
     ], spacing=16, horizontal_alignment=STRETCH)
@@ -688,7 +748,7 @@ def main(page: ft.Page):
     )
     world_locked = signin_prompt("Sign in to HoYoLAB to see your exploration progress.")
     world_body = ft.Column([world_locked], spacing=16, horizontal_alignment=STRETCH)
-    world_view = ft.Column([page_head(2), maps_card, world_body], spacing=16, horizontal_alignment=STRETCH)
+    world_view = ft.Column([page_head(WORLD), maps_card, world_body], spacing=16, horizontal_alignment=STRETCH)
     region_cards = []  # (estimated height, card), kept so a window resize can re-flow them
     region_grid = ft.Row(spacing=16, vertical_alignment=ft.CrossAxisAlignment.START)
 
@@ -790,7 +850,7 @@ def main(page: ft.Page):
     # --- Characters tab -----------------------------------------------------
     chars_locked = signin_prompt("Sign in to HoYoLAB to see your characters and their builds.")
     chars_body = ft.Column([chars_locked], spacing=16, horizontal_alignment=STRETCH)
-    characters_view = ft.Column([page_head(3), chars_body], spacing=16, horizontal_alignment=STRETCH)
+    characters_view = ft.Column([page_head(CHARACTERS), chars_body], spacing=16, horizontal_alignment=STRETCH)
     builds = {}  # character id -> (detail, property_map); fetched on first open, one call per character
 
     roster = {"chars": [], "role": None}  # last loaded list, re-filtered without another request
@@ -1190,7 +1250,7 @@ def main(page: ft.Page):
         page.pop_dialog()
         vault.delete()
         bound_roles.clear()
-        loaded.difference_update({WORLD, CHARACTERS})
+        loaded.difference_update({EVENTS, WORLD, CHARACTERS})
         account_row.visible = False
         profiles.controls = []
         world_body.controls = [world_locked]
@@ -1283,7 +1343,7 @@ def main(page: ft.Page):
         db.set_meta(db.connect(), "default_uid", e.control.value)
         uid_pick.value = None  # let the Wishes tab follow the new default
         refresh_stats()
-        loaded.difference_update({WORLD, CHARACTERS})
+        loaded.difference_update({EVENTS, WORLD, CHARACTERS})
         ensure_loaded(current["i"])
 
     account_pick = ft.Dropdown(label="Game account", width=320, dense=True, filled=True, border_radius=14,
@@ -1432,7 +1492,8 @@ def main(page: ft.Page):
     # --- Shell --------------------------------------------------------------
     # PC: sidebar (lots of width, mouse). Mobile: bottom bar (thumb reach) + app bar with the page title.
     # All tabs stay mounted (only visibility toggles) so background updates never hit a detached control.
-    views = [today_view, wishes_view, world_view, characters_view, wiki_view, account_view, settings_view]
+    views = [today_view, events_view, wishes_view, world_view, characters_view, wiki_view, account_view,
+             settings_view]
     section_title = ft.Text(SECTIONS[0][0], size=20, weight=ft.FontWeight.BOLD)
 
     def select(i):

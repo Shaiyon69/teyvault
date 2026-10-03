@@ -28,6 +28,38 @@ class TestWiki(unittest.TestCase):
         self.assertEqual([a["id"] for a in flat], [1, 2, 3])
         self.assertEqual({a["category"] for a in flat}, {"Wonders"})
 
+    def test_parse_timeline_and_server_times(self):
+        js = """export const eventsData = [
+  [
+    {
+      name: "Adventure's Eve",
+      start: '2026-09-23 06:00:00',
+      end: '2026-11-03 14:59:00',
+      timezoneDependent: true,
+      description:
+        'Line one.\\nLine two: true',
+    },
+  ],
+  [
+    {
+      name: 'Abyss',
+      start: '2026-10-01 04:00:00',
+      end: '2026-10-16 04:00:00',
+      showOnHome: false,
+    },
+  ],
+];
+"""
+        rows = wiki.parse_timeline(js)
+        self.assertEqual(rows[0][0]["description"], "Line one.\nLine two: true")
+        self.assertIs(rows[0][0]["timezoneDependent"], True)
+        start, _ = wiki.event_times(rows[0][0], "os_usa")
+        self.assertEqual(start.utcoffset().total_seconds(), -5 * 3600)
+        start, _ = wiki.event_times(rows[0][0], None)
+        self.assertEqual(start.utcoffset().total_seconds(), 8 * 3600)
+        chart = gui.timeline_chart(rows, "os_euro")
+        self.assertTrue(chart.controls)
+
     def test_achievement_ticks_round_trip(self):
         conn = db.connect(":memory:")
         db.set_done(conn, 7, True)
