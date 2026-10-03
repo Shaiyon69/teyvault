@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Teyvault</title>
+<meta name="description" content="Genshin Impact companion: daily check-in, promo codes, wish history with pity and 50/50 stats.">
+<link rel="icon" href="https://raw.githubusercontent.com/Shaiyon69/teyvault/main/assets/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Same palette as the app's Classic style (NIGHT / DAY in teyvat/gui.py). */
+  :root {
+    --primary: #E6C07B; --on-primary: #1B1608; --secondary: #B58CF5;
+    --surface: #0E1020; --on-surface: #ECE8F4; --muted: #BDBAD0;
+    --card: #171A2E; --card-high: #1F2340; --outline: #2C3155;
+    --hero-a: #3A2F5C; --hero-b: #1F2340;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --primary: #946A14; --on-primary: #FFFFFF; --secondary: #6E46C0;
+      --surface: #F7F5FB; --on-surface: #1B1A24; --muted: #55526A;
+      --card: #EEEAF5; --card-high: #E5E0EF; --outline: #CFC8DF;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--surface); color: var(--on-surface); font: 16px/1.5 Inter, system-ui, sans-serif; }
+  main { max-width: 880px; margin: 0 auto; padding: 48px 16px; display: grid; gap: 20px; }
+  a { color: inherit; }
+  .hero {
+    padding: 32px; border-radius: 24px; color: #ECE8F4;
+    background: linear-gradient(135deg, var(--hero-a), var(--hero-b));
+    display: flex; gap: 24px; align-items: center; flex-wrap: wrap;
+  }
+  .hero img { width: 96px; height: 96px; border-radius: 24px; }
+  .hero h1 { margin: 0; font-size: 40px; font-weight: 700; }
+  .hero p { margin: 4px 0 0; color: #BDBAD0; }
+  .downloads { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .card { padding: 20px; border-radius: 20px; background: var(--card); display: grid; gap: 12px; align-content: start; }
+  .card h2 { margin: 0; font-size: 18px; font-weight: 600; }
+  .muted { color: var(--muted); font-size: 14px; margin: 0; }
+  .btn {
+    display: inline-block; text-align: center; text-decoration: none; font-weight: 600;
+    padding: 12px 20px; border-radius: 999px; background: var(--primary); color: var(--on-primary);
+  }
+  .btn.ghost { background: var(--card-high); color: var(--on-surface); }
+  ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+  li::marker { color: var(--secondary); }
+  code { background: var(--card-high); padding: 2px 6px; border-radius: 6px; font-size: 14px; }
+  footer { text-align: center; color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <img src="https://raw.githubusercontent.com/Shaiyon69/teyvault/main/assets/icon.png" alt="Teyvault icon">
+    <div>
+      <h1>Teyvault</h1>
+      <p>Your Genshin Impact companion: daily check-in, promo codes, wish history with pity and 50/50 stats.</p>
+    </div>
+  </section>
+
+  <section class="downloads">
+    <div class="card">
+      <h2>Windows</h2>
+      <p class="muted">Installer for Windows 10 and 11.</p>
+      <a class="btn" href="https://github.com/Shaiyon69/teyvault/releases/latest/download/Teyvault-Setup.exe">Download .exe</a>
+    </div>
+    <div class="card">
+      <h2>Android</h2>
+      <p class="muted">Allow installs from your browser when asked.</p>
+      <a class="btn" href="https://github.com/Shaiyon69/teyvault/releases/latest/download/Teyvault.apk">Download .apk</a>
+    </div>
+    <div class="card">
+      <h2>From source</h2>
+      <p class="muted">CLI and GUI, any OS with Python.</p>
+      <code>pip install git+https://github.com/Shaiyon69/teyvault</code>
+      <a class="btn ghost" href="https://github.com/Shaiyon69/teyvault">View on GitHub</a>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>What it does</h2>
+    <ul>
+      <li>HoYoLAB daily check-in and promo code redeem</li>
+      <li>Wish history with pity, 50/50 record and 5★ history; UIGF and Excel import/export</li>
+      <li>Events timeline, current banners, exploration progress and character builds</li>
+      <li>In-app wiki for characters, weapons, artifacts, enemies and achievements</li>
+      <li>Sync wishes from your PC to your phone over Wi-Fi</li>
+    </ul>
+    <p class="muted">Global servers only. Not affiliated with HoYoverse.</p>
+  </section>
+
+  <footer>Made by <a href="https://github.com/Shaiyon69">Shaiyon69</a> · <a href="https://github.com/Shaiyon69/teyvault/releases">All releases</a></footer>
+</main>
+</body>
+</html>
