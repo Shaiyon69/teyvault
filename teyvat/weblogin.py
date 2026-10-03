@@ -4,6 +4,8 @@ pywebview must own the main thread, which Flet already does, so the GUI runs thi
 import json
 import subprocess
 import sys
+import tempfile
+import threading
 import time
 
 from teyvat import vault
@@ -14,15 +16,21 @@ TIMEOUT_S = 600
 
 def sign_in() -> dict:
     """Opens the login window and blocks until the user logs in or closes it. Returns cookies."""
-    # NOTE: assumes sys.executable is a Python interpreter (pip install / dev run). A frozen
-    # `flet build windows` exe would need main.py to dispatch a --weblogin flag instead.
-    proc = subprocess.run([sys.executable, "-m", "teyvat.weblogin"], capture_output=True, text=True,
-                          timeout=TIMEOUT_S, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-    lines = proc.stdout.strip().splitlines()
-    cookies = json.loads(lines[-1]) if lines else {}
+    # The installed app (`flet pack`, PyInstaller) re-launches itself; main.py routes --weblogin here.
+    cmd = [sys.executable, "--weblogin"] if getattr(sys, "frozen", False) else [sys.executable, "-m", "teyvat.weblogin"]
+    # Read the one JSON line, not until EOF: WebView2's helper processes inherit stdout and
+    # can outlive the window, so EOF may never come. The child enforces TIMEOUT_S itself.
+    with tempfile.TemporaryFile() as err:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=err, text=True,
+                                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        line = next((l for l in proc.stdout if l.startswith("{")), "")  # skip any library chatter
+        proc.wait()
+        err.seek(0)
+        stderr = err.read().decode(errors="replace").strip()
+    cookies = json.loads(line) if line else {}
     if "ltoken_v2" not in cookies:
         raise RuntimeError("Sign-in window closed before login finished."
-                           + (f"\n{proc.stderr.strip()[-300:]}" if proc.returncode else ""))
+                           + (f"\n{stderr[-300:]}" if proc.returncode else ""))
     return cookies
 
 
@@ -30,22 +38,29 @@ def _main():
     import webview
 
     found = {}
+    closed = threading.Event()
 
     def watch(window):
-        while not found:
-            time.sleep(1)
+        deadline = time.monotonic() + TIMEOUT_S
+        while not found and not closed.wait(1):  # closed by the user
+            if time.monotonic() > deadline:
+                window.destroy()
+                return
             try:
                 jar = window.get_cookies()
-            except Exception:  # window closed by the user
+            except Exception:
                 return
-            cookies = {k: m.value for c in jar for k, m in c.items() if k in vault.WANTED}
+            cookies = {k: m.value for c in jar or [] for k, m in c.items() if k in vault.WANTED}
             if "ltoken_v2" in cookies and "ltuid_v2" in cookies:
                 found.update(cookies)
                 window.destroy()
 
     window = webview.create_window("Log in to HoYoLAB (closes when done)", URL, width=1000, height=760)
-    webview.start(watch, window)  # private mode: fresh session every time, nothing left on disk
-    print(json.dumps(found))
+    window.events.closed += closed.set
+    try:
+        webview.start(watch, window)  # private mode: fresh session every time, nothing left on disk
+    finally:  # always answer, or sign_in() waits on a pipe the WebView2 helpers keep open
+        print(json.dumps(found), flush=True)
 
 
 if __name__ == "__main__":
