@@ -131,6 +131,27 @@ def text(rich) -> str:
     return html.unescape(re.sub(r"<[^>]+>", "", rich)).strip()
 
 
+def short(desc) -> str:
+    """Lite skill text: the first sentence of each part ("Charged Attack", "Hold", ...), else of the whole.
+    Lore lines and the later sentences go; a list the kept sentence introduces ("effects:") stays."""
+    lines = [x.strip() for x in desc.splitlines() if x.strip()]
+    heading = lambda x: len(x) <= 40 and not x.endswith((".", "!", "?", ":", "%", ")")) and not x.startswith("·")
+    # with sub-headings, text before the first one is flavor
+    out, want, listing = [], not any(map(heading, lines)), False
+    for x in lines:
+        if heading(x):
+            out.append(x)
+            want, listing = True, False
+        elif want:
+            out.append(re.match(r".+?[.!?](?=\s|$)|.+", x).group())
+            want, listing = False, out[-1].endswith(":")
+        elif listing and x.startswith("·"):
+            out.append(x)
+        else:
+            listing = False
+    return "\n".join(out) or desc
+
+
 def _value(v) -> str:
     """A baseInfo value: rich text, or a "$[...]$" link list to other entries (names kept)."""
     if v.startswith("$[") and v.endswith("]$"):

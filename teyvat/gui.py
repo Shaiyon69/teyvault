@@ -1064,6 +1064,10 @@ def main(page: ft.Page):
             tooltip=None if mobile else f"{c['name']} · {c['element']} · {w['name']}",
             on_click=lambda e: open_build(c, role), col=tile_col)
 
+    def skill_text():
+        """Talent text as the Wiki page's Full/Lite button wants it."""
+        return wiki.short if db.get_meta(db.connect(), "short_skills") == "1" else str
+
     def build_view(c, d, pm):
         """Two columns on desktop (who they are | what they wear), one on mobile."""
         name = lambda p: pm.get(str(p["property_type"]), {}).get("name", "?").replace("\xa0", " ")
@@ -1088,7 +1092,7 @@ def main(page: ft.Page):
             muted(t["name"], size=11, text_align=ft.TextAlign.CENTER, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS),
         ], spacing=2, horizontal_alignment=ft.CrossAxisAlignment.CENTER), expand=True, padding=8,
             border_radius=STYLE["radius"] - 6, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
-            tooltip=clean(t["desc"])[:600]) for t in d["skills"] if t["skill_type"] == 1]
+            tooltip=skill_text()(clean(t["desc"]))[:600]) for t in d["skills"] if t["skill_type"] == 1]
         stats = [ft.Container(ft.Column([
             muted(name(p), size=12),
             ft.Text(p["final"], size=16, weight=ft.FontWeight.BOLD),
@@ -1218,6 +1222,7 @@ def main(page: ft.Page):
 
     def entry_view(d):
         """A wiki page rendered in the app: picture, blurb, then each section (attributes, talents, ...)."""
+        skill = skill_text() if wiki_state["cat"] == "Characters" else str  # artifact pieces stay whole
         blocks = [ft.Container(ft.Image(src=wiki.image(d["image"]), height=220, fit=ft.BoxFit.CONTAIN,
                                         error_content=ft.Container()), alignment=ft.Alignment.CENTER)
                   ] if d["image"] else []
@@ -1233,7 +1238,7 @@ def main(page: ft.Page):
                                      width=44, height=44, border_radius=12, alignment=ft.Alignment.CENTER,
                                      bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST),
                         ft.Column([ft.Text(name, size=14, weight=ft.FontWeight.W_600),
-                                   muted(text, size=13, selectable=True)], spacing=2, expand=True),
+                                   muted(skill(text), size=13, selectable=True)], spacing=2, expand=True),
                     ], spacing=10, vertical_alignment=ft.CrossAxisAlignment.START))
                 elif name and len(text) < 120:  # attribute line: label | value
                     blocks.append(ft.Row([muted(name, size=13, width=110 if mobile else 150),
@@ -1251,6 +1256,13 @@ def main(page: ft.Page):
         body = ft.Container(ft.Column([skeleton(1, height=200), skeleton(4, height=48)], spacing=10, tight=True),
                             width=(page.width or 360) - 72 if mobile else 760, height=(page.height or 700) - 220 if mobile else 560)
         tags = [v for vs in e["filters"].values() for v in vs if "★" not in v and not v[:1].isdigit()]
+        shown = {}
+
+        def set_short(ev):
+            db.set_meta(db.connect(), "short_skills", "1" if ev.control.selected[0] == "lite" else "0")
+            if shown:
+                body.content = entry_view(shown["d"])
+                body.update()
         page.show_dialog(ft.AlertDialog(
             inset_padding=ft.Padding.all(12) if mobile else None,
             title=ft.Row([portrait(e["icon"], r, 44, WIKI_CATS[cat]), ft.Column([
@@ -1258,6 +1270,11 @@ def main(page: ft.Page):
                 muted(" · ".join(["★" * r] * bool(r) + tags), size=13),
             ], spacing=2, expand=True)], spacing=12),
             content=body, actions=[
+                ft.SegmentedButton(
+                    selected=["lite" if db.get_meta(db.connect(), "short_skills") == "1" else "full"],
+                    segments=[ft.Segment("full", label="Full"),
+                              ft.Segment("lite", label="Lite", tooltip="First sentence of each talent and constellation")],
+                    show_selected_icon=False, on_change=set_short, visible=cat == "Characters"),
                 ft.TextButton("Open on HoYoLAB", icon=ft.Icons.OPEN_IN_NEW_ROUNDED,
                               url=wiki.WIKI_ENTRY_URL.format(e["id"])),
                 ft.TextButton("Close", on_click=lambda ev: page.pop_dialog())]))
@@ -1266,6 +1283,7 @@ def main(page: ft.Page):
             try:
                 d = wiki.entry(db.connect(), e["id"])
                 wiki.cache_images([d["image"]] + [x[2] for sec in d["sections"] for x in sec["rows"] if x[2]])
+                shown["d"] = d
                 body.content = entry_view(d)
             except Exception as ex:
                 body.content = muted(f"Could not load this page: {ex}")

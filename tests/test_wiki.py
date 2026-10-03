@@ -142,6 +142,13 @@ class TestWiki(unittest.TestCase):
             wiki.prefetch_entries(conn, [1], sleeps.append)  # cached this week: no request, no wait
         self.assertEqual((req.call_count, len(sleeps)), (1, 1))
 
+    def test_short_skill_text(self):
+        talent = "Channels lightning.\n\nTap/Press\nReleases an orb. On hit, it deals DMG.\n\nHold\nCalls lightning.\n\nLore line."
+        self.assertEqual(wiki.short(talent), "Tap/Press\nReleases an orb.\nHold\nCalls lightning.")
+        listed = "Holding it has the following effects:\n·DEF +25%.\n·Less interruption.\nMax 15."
+        self.assertEqual(wiki.short(listed), "Holding it has the following effects:\n·DEF +25%.\n·Less interruption.")
+        self.assertEqual(wiki.short("Deals 1.5% DMG. Then more."), "Deals 1.5% DMG.")
+
     def test_achievement_ticks_round_trip(self):
         conn = db.connect(":memory:")
         db.set_done(conn, 7, True)
