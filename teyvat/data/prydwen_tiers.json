@@ -1,0 +1,838 @@
+{
+ "_note": "Prydwen.gg Genshin Impact overall tier list (https://www.prydwen.gg/genshin-impact/tier-list), best tier first; a character can be rated in several roles. Travelers are \"Traveler <Element>\". prydwen.gg sits behind Cloudflare, so refresh this by hand (e.g. from the latest web.archive.org snapshot) when it updates.",
+ "updated": "2026-10-01",
+ "tiers": [
+  "T0",
+  "T0.5",
+  "T1",
+  "T1.5",
+  "T2",
+  "T3",
+  "T4",
+  "T5"
+ ],
+ "characters": {
+  "Mavuika": [
+   [
+    "T0",
+    "On-field DPS"
+   ],
+   [
+    "T1",
+    "Off-field DPS"
+   ]
+  ],
+  "Nefer": [
+   [
+    "T0",
+    "On-field DPS"
+   ]
+  ],
+  "Sandrone": [
+   [
+    "T0",
+    "On-field DPS"
+   ]
+  ],
+  "Vesna": [
+   [
+    "T0",
+    "On-field DPS"
+   ]
+  ],
+  "Wriothesley": [
+   [
+    "T0",
+    "On-field DPS"
+   ]
+  ],
+  "Yumemizuki Mizuki": [
+   [
+    "T0",
+    "On-field DPS"
+   ]
+  ],
+  "Zibai": [
+   [
+    "T0",
+    "On-field DPS"
+   ]
+  ],
+  "Columbina": [
+   [
+    "T0",
+    "Off-field DPS"
+   ],
+   [
+    "T1.5",
+    "On-field DPS"
+   ]
+  ],
+  "Ineffa": [
+   [
+    "T0",
+    "Off-field DPS"
+   ]
+  ],
+  "Linnea": [
+   [
+    "T0",
+    "Off-field DPS"
+   ]
+  ],
+  "Odette": [
+   [
+    "T0",
+    "Off-field DPS"
+   ]
+  ],
+  "Yae Miko": [
+   [
+    "T0",
+    "Off-field DPS"
+   ]
+  ],
+  "Chevreuse": [
+   [
+    "T0",
+    "Support"
+   ]
+  ],
+  "Iansan": [
+   [
+    "T0",
+    "Support"
+   ]
+  ],
+  "Lauma": [
+   [
+    "T0",
+    "Support"
+   ]
+  ],
+  "Nicole": [
+   [
+    "T0",
+    "Support"
+   ]
+  ],
+  "Sucrose": [
+   [
+    "T0",
+    "Support"
+   ]
+  ],
+  "Cyno": [
+   [
+    "T0.5",
+    "On-field DPS"
+   ]
+  ],
+  "Flins": [
+   [
+    "T0.5",
+    "On-field DPS"
+   ]
+  ],
+  "Skirk": [
+   [
+    "T0.5",
+    "On-field DPS"
+   ]
+  ],
+  "Traveler Cryo": [
+   [
+    "T0.5",
+    "On-field DPS"
+   ],
+   [
+    "T0.5",
+    "Off-field DPS"
+   ]
+  ],
+  "Varka": [
+   [
+    "T0.5",
+    "On-field DPS"
+   ]
+  ],
+  "Durin": [
+   [
+    "T0.5",
+    "Off-field DPS"
+   ]
+  ],
+  "Escoffier": [
+   [
+    "T0.5",
+    "Off-field DPS"
+   ]
+  ],
+  "Fischl": [
+   [
+    "T0.5",
+    "Off-field DPS"
+   ]
+  ],
+  "Alyosha": [
+   [
+    "T0.5",
+    "Support"
+   ],
+   [
+    "T1.5",
+    "Support"
+   ]
+  ],
+  "Bennett": [
+   [
+    "T0.5",
+    "Support"
+   ]
+  ],
+  "Citlali": [
+   [
+    "T0.5",
+    "Support"
+   ]
+  ],
+  "Faruzan": [
+   [
+    "T0.5",
+    "Support"
+   ]
+  ],
+  "Illuga": [
+   [
+    "T0.5",
+    "Support"
+   ],
+   [
+    "T1.5",
+    "Support"
+   ]
+  ],
+  "Mona": [
+   [
+    "T0.5",
+    "Support"
+   ]
+  ],
+  "Prune": [
+   [
+    "T0.5",
+    "Support"
+   ],
+   [
+    "T1.5",
+    "Support"
+   ]
+  ],
+  "Vodyanitsa": [
+   [
+    "T0.5",
+    "Support"
+   ]
+  ],
+  "Arlecchino": [
+   [
+    "T1",
+    "On-field DPS"
+   ]
+  ],
+  "Kinich": [
+   [
+    "T1",
+    "On-field DPS"
+   ]
+  ],
+  "Klee": [
+   [
+    "T1",
+    "On-field DPS"
+   ]
+  ],
+  "Lohen": [
+   [
+    "T1",
+    "On-field DPS"
+   ]
+  ],
+  "Mualani": [
+   [
+    "T1",
+    "On-field DPS"
+   ]
+  ],
+  "Varesa": [
+   [
+    "T1",
+    "On-field DPS"
+   ]
+  ],
+  "Albedo": [
+   [
+    "T1",
+    "Off-field DPS"
+   ]
+  ],
+  "Emilie": [
+   [
+    "T1",
+    "Off-field DPS"
+   ]
+  ],
+  "Furina": [
+   [
+    "T1",
+    "Off-field DPS"
+   ]
+  ],
+  "Ororon": [
+   [
+    "T1",
+    "Off-field DPS"
+   ]
+  ],
+  "Aino": [
+   [
+    "T1",
+    "Support"
+   ]
+  ],
+  "Beidou": [
+   [
+    "T1",
+    "Support"
+   ]
+  ],
+  "Nahida": [
+   [
+    "T1",
+    "Support"
+   ]
+  ],
+  "Qiqi": [
+   [
+    "T1",
+    "Support"
+   ]
+  ],
+  "Xilonen": [
+   [
+    "T1",
+    "Support"
+   ]
+  ],
+  "Clorinde": [
+   [
+    "T1.5",
+    "On-field DPS"
+   ]
+  ],
+  "Gaming": [
+   [
+    "T1.5",
+    "On-field DPS"
+   ]
+  ],
+  "Hu Tao": [
+   [
+    "T1.5",
+    "On-field DPS"
+   ]
+  ],
+  "Lyney": [
+   [
+    "T1.5",
+    "On-field DPS"
+   ]
+  ],
+  "Navia": [
+   [
+    "T1.5",
+    "On-field DPS"
+   ]
+  ],
+  "Neuvillette": [
+   [
+    "T1.5",
+    "On-field DPS"
+   ]
+  ],
+  "Venti": [
+   [
+    "T1.5",
+    "On-field DPS"
+   ],
+   [
+    "T1.5",
+    "Off-field DPS"
+   ]
+  ],
+  "Chiori": [
+   [
+    "T1.5",
+    "Off-field DPS"
+   ]
+  ],
+  "Xiangling": [
+   [
+    "T1.5",
+    "Off-field DPS"
+   ]
+  ],
+  "Xingqiu": [
+   [
+    "T1.5",
+    "Off-field DPS"
+   ]
+  ],
+  "Yelan": [
+   [
+    "T1.5",
+    "Off-field DPS"
+   ]
+  ],
+  "Diona": [
+   [
+    "T1.5",
+    "Support"
+   ]
+  ],
+  "Gorou": [
+   [
+    "T1.5",
+    "Support"
+   ]
+  ],
+  "Jahoda": [
+   [
+    "T1.5",
+    "Support"
+   ]
+  ],
+  "Kaedehara Kazuha": [
+   [
+    "T1.5",
+    "Support"
+   ]
+  ],
+  "Nilou": [
+   [
+    "T1.5",
+    "Support"
+   ]
+  ],
+  "Shenhe": [
+   [
+    "T1.5",
+    "Support"
+   ]
+  ],
+  "Traveler Pyro": [
+   [
+    "T1.5",
+    "Support"
+   ]
+  ],
+  "Zhongli": [
+   [
+    "T1.5",
+    "Support"
+   ]
+  ],
+  "Arataki Itto": [
+   [
+    "T2",
+    "On-field DPS"
+   ]
+  ],
+  "Chasca": [
+   [
+    "T2",
+    "On-field DPS"
+   ]
+  ],
+  "Ifa": [
+   [
+    "T2",
+    "On-field DPS"
+   ]
+  ],
+  "Kamisato Ayaka": [
+   [
+    "T2",
+    "On-field DPS"
+   ]
+  ],
+  "Noelle": [
+   [
+    "T2",
+    "On-field DPS"
+   ]
+  ],
+  "Raiden Shogun": [
+   [
+    "T2",
+    "On-field DPS"
+   ],
+   [
+    "T2",
+    "Off-field DPS"
+   ]
+  ],
+  "Razor": [
+   [
+    "T2",
+    "On-field DPS"
+   ]
+  ],
+  "Wanderer": [
+   [
+    "T2",
+    "On-field DPS"
+   ]
+  ],
+  "Xiao": [
+   [
+    "T2",
+    "On-field DPS"
+   ]
+  ],
+  "Kuki Shinobu": [
+   [
+    "T2",
+    "Off-field DPS"
+   ],
+   [
+    "T2",
+    "Support"
+   ]
+  ],
+  "Rosaria": [
+   [
+    "T2",
+    "Off-field DPS"
+   ]
+  ],
+  "Sangonomiya Kokomi": [
+   [
+    "T2",
+    "Off-field DPS"
+   ],
+   [
+    "T3",
+    "Support"
+   ]
+  ],
+  "Charlotte": [
+   [
+    "T2",
+    "Support"
+   ]
+  ],
+  "Jean": [
+   [
+    "T2",
+    "Support"
+   ]
+  ],
+  "Kachina": [
+   [
+    "T2",
+    "Support"
+   ]
+  ],
+  "Kujou Sara": [
+   [
+    "T2",
+    "Support"
+   ]
+  ],
+  "Lan Yan": [
+   [
+    "T2",
+    "Support"
+   ]
+  ],
+  "Xianyun": [
+   [
+    "T2",
+    "Support"
+   ]
+  ],
+  "Alhaitham": [
+   [
+    "T3",
+    "On-field DPS"
+   ]
+  ],
+  "Diluc": [
+   [
+    "T3",
+    "On-field DPS"
+   ]
+  ],
+  "Ganyu": [
+   [
+    "T3",
+    "On-field DPS"
+   ]
+  ],
+  "Ningguang": [
+   [
+    "T3",
+    "On-field DPS"
+   ]
+  ],
+  "Sethos": [
+   [
+    "T3",
+    "On-field DPS"
+   ]
+  ],
+  "Yanfei": [
+   [
+    "T3",
+    "On-field DPS"
+   ]
+  ],
+  "Yoimiya": [
+   [
+    "T3",
+    "On-field DPS"
+   ]
+  ],
+  "Barbara": [
+   [
+    "T3",
+    "Off-field DPS"
+   ],
+   [
+    "T4",
+    "Support"
+   ]
+  ],
+  "Kaeya": [
+   [
+    "T3",
+    "Off-field DPS"
+   ]
+  ],
+  "Thoma": [
+   [
+    "T3",
+    "Off-field DPS"
+   ],
+   [
+    "T4",
+    "Support"
+   ]
+  ],
+  "Baizhu": [
+   [
+    "T3",
+    "Support"
+   ]
+  ],
+  "Candace": [
+   [
+    "T3",
+    "Support"
+   ]
+  ],
+  "Chongyun": [
+   [
+    "T3",
+    "Support"
+   ]
+  ],
+  "Collei": [
+   [
+    "T3",
+    "Support"
+   ]
+  ],
+  "Dahlia": [
+   [
+    "T3",
+    "Support"
+   ]
+  ],
+  "Dehya": [
+   [
+    "T3",
+    "Support"
+   ],
+   [
+    "T4",
+    "On-field DPS"
+   ]
+  ],
+  "Kirara": [
+   [
+    "T3",
+    "Support"
+   ]
+  ],
+  "Layla": [
+   [
+    "T3",
+    "Support"
+   ]
+  ],
+  "Lynette": [
+   [
+    "T3",
+    "Support"
+   ]
+  ],
+  "Sigewinne": [
+   [
+    "T3",
+    "Support"
+   ]
+  ],
+  "Traveler Anemo": [
+   [
+    "T3",
+    "Support"
+   ]
+  ],
+  "Traveler Dendro": [
+   [
+    "T3",
+    "Support"
+   ]
+  ],
+  "Yaoyao": [
+   [
+    "T3",
+    "Support"
+   ]
+  ],
+  "Dori": [
+   [
+    "T4",
+    "On-field DPS"
+   ]
+  ],
+  "Eula": [
+   [
+    "T4",
+    "On-field DPS"
+   ]
+  ],
+  "Freminet": [
+   [
+    "T4",
+    "On-field DPS"
+   ]
+  ],
+  "Kamisato Ayato": [
+   [
+    "T4",
+    "On-field DPS"
+   ]
+  ],
+  "Kaveh": [
+   [
+    "T4",
+    "On-field DPS"
+   ]
+  ],
+  "Keqing": [
+   [
+    "T4",
+    "On-field DPS"
+   ]
+  ],
+  "Lisa": [
+   [
+    "T4",
+    "On-field DPS"
+   ],
+   [
+    "T4",
+    "Support"
+   ]
+  ],
+  "Shikanoin Heizou": [
+   [
+    "T4",
+    "On-field DPS"
+   ]
+  ],
+  "Tartaglia": [
+   [
+    "T4",
+    "On-field DPS"
+   ]
+  ],
+  "Tighnari": [
+   [
+    "T4",
+    "On-field DPS"
+   ]
+  ],
+  "Amber": [
+   [
+    "T4",
+    "Support"
+   ],
+   [
+    "T5",
+    "On-field DPS"
+   ]
+  ],
+  "Mika": [
+   [
+    "T4",
+    "Support"
+   ]
+  ],
+  "Sayu": [
+   [
+    "T4",
+    "Support"
+   ]
+  ],
+  "Traveler Geo": [
+   [
+    "T4",
+    "Support"
+   ]
+  ],
+  "Yun Jin": [
+   [
+    "T4",
+    "Support"
+   ]
+  ],
+  "Aloy": [
+   [
+    "T5",
+    "On-field DPS"
+   ]
+  ],
+  "Traveler Hydro": [
+   [
+    "T5",
+    "On-field DPS"
+   ]
+  ],
+  "Xinyan": [
+   [
+    "T5",
+    "On-field DPS"
+   ]
+  ],
+  "Traveler Electro": [
+   [
+    "T5",
+    "Support"
+   ]
+  ]
+ }
+}

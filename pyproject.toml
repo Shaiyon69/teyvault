@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "teyvault"
+version = "0.2.0"
+description = "Genshin Impact account companion: daily check-in, codes, wish history."
+requires-python = ">=3.11"
+dependencies = ["keyring>=24", "flet==1.0.3", "openpyxl>=3.1", "pywebview>=6; sys_platform == 'win32'"]
+
+[project.scripts]
+teyvault = "teyvat.cli:main"
+
+[project.gui-scripts]
+teyvault-gui = "teyvat.gui:run"
+
+[tool.setuptools]
+packages = ["teyvat"]
+
+[tool.setuptools.package-data]
+teyvat = ["data/*.json"]
+
+# `flet build windows|apk|ipa` reads this section.
+[tool.flet]
+product = "Teyvault"
+org = "com.teylogs"  # kept from the old name: changing it makes phones install a new app with empty data
+company = "Teyvault"
+
+[tool.flet.app]
+path = "."
+module = "main"
+exclude = ["tests", "build", "*.egg-info"]
+
+# iOS asks before an app talks to the local network (phone sync pulls from the PC).
+[tool.flet.ios.info]
+NSLocalNetworkUsageDescription = "Teyvault receives your wish history from Teyvault on your PC over Wi-Fi."
