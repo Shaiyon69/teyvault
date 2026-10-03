@@ -185,10 +185,14 @@ def stats(rows, standard) -> dict:
     return out
 
 
+def slug(name) -> str:
+    """paimon.moe's id for a character/weapon name ("Kuki Shinobu" -> "kuki_shinobu")."""
+    return re.sub(r"[^a-z0-9-]+", "_", re.sub(r"['\"]", "", name.lower())).strip("_")
+
+
 def icon_url(name, item_type) -> str:
     folder = "weapons" if item_type == "Weapon" else "characters"
-    slug = re.sub(r"[^a-z0-9-]+", "_", re.sub(r"['\"]", "", name.lower())).strip("_")
-    return f"{ICON_CDN}/{folder}/{slug}.png"
+    return f"{ICON_CDN}/{folder}/{slug(name)}.png"
 
 
 # --- UIGF import/export -----------------------------------------------------

@@ -189,7 +189,7 @@ def item_icon(name, item_type, size=36, rarity=5):
         width=size, height=size, border_radius=size / 2, alignment=ft.Alignment.CENTER,
         gradient=ft.LinearGradient(begin=ft.Alignment.TOP_CENTER, end=ft.Alignment.BOTTOM_CENTER,
                                    colors=RARITY_BG[rarity]),
-        clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+        clip_behavior=ft.ClipBehavior.ANTI_ALIAS, tooltip=name,
     )
 
 
@@ -246,6 +246,26 @@ def timeline_chart(rows, region, day_px=28, row_h=32):
     now_line = ft.Container(left=pos(now) - 1, top=0, width=2, height=height, bgcolor=ft.Colors.PRIMARY)
     return ft.Row([ft.Column([header, ft.Stack(bars + [now_line], width=width, height=height)], spacing=8)],
                   scroll=ft.ScrollMode.AUTO)
+
+
+def banner_tile(pool, b, start, end):
+    """One event banner: its featured 5★/4★ and how long it runs (or when it starts)."""
+    now = datetime.datetime.now().astimezone()
+    kind = "Weapon" if pool.startswith("Weapon") else "Character"
+    left = end - now
+    when = (f"Ends in {left.days}d {left.seconds // 3600}h · {end.astimezone():%d %b %H:%M}" if start <= now
+            else f"Starts {start.astimezone():%d %b %H:%M} · until {end.astimezone():%d %b}")
+    # NOTE: Chronicled lists a whole region's roster; only the first few are drawn.
+    icons = ([item_icon(wiki.name_for(x), kind, 48) for x in b.get("featured", [])[:6]]
+             + [item_icon(wiki.name_for(x), kind, 34, 4) for x in b.get("featuredRare", [])[:5]])
+    return ft.Container(ft.Column([
+        ft.Row([ft.Text(pool, size=14, weight=ft.FontWeight.W_600), pill(f"v{b['version']}") if b.get("version")
+                else ft.Container()], spacing=8),
+        muted(b["name"], size=12),
+        ft.Row(icons, wrap=True, spacing=6, run_spacing=6, vertical_alignment=ft.CrossAxisAlignment.END),
+        muted(when, size=12, color=GOLD if start <= now and left.days < 3 else None),
+    ], spacing=6), padding=12, border_radius=STYLE["radius"] - 6, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
+        width=330)
 
 
 def portrait(src, rarity, size, fallback=ft.Icons.PERSON_ROUNDED):
@@ -372,13 +392,14 @@ def main(page: ft.Page):
     def ensure_loaded(i):
         """Fetch a tab's data the first time it is opened, not all at startup (fewer requests, faster
         first paint on phones). World/Characters wait until the game accounts are known, and so do
-        Events when signed in (event times follow the account's server)."""
-        if (i in loaded or i not in (EVENTS, WORLD, CHARACTERS, WIKI) or (i in (WORLD, CHARACTERS) and not bound_roles)
-                or (i == EVENTS and not bound_roles and logged_in())):
+        Events and the Wishes banners when signed in (their times follow the account's server)."""
+        if (i in loaded or i not in (EVENTS, WISHES, WORLD, CHARACTERS, WIKI)
+                or (i in (WORLD, CHARACTERS) and not bound_roles)
+                or (i in (EVENTS, WISHES) and not bound_roles and logged_in())):
             return
         loaded.add(i)
-        if i in (EVENTS, WIKI):
-            page.run_thread(load_timeline if i == EVENTS else load_wiki)
+        if i in (EVENTS, WISHES, WIKI):
+            page.run_thread({EVENTS: load_timeline, WISHES: load_banners, WIKI: load_wiki}[i])
         else:
             page.run_thread({WORLD: load_world, CHARACTERS: load_characters}[i], active_role())
 
@@ -546,6 +567,19 @@ def main(page: ft.Page):
     stats_view = ft.Column(spacing=16, horizontal_alignment=STRETCH)
 
     view = {"ranks": "5", "order": "new"}  # which pulls the history shows, and in what order
+    banners_row = ft.Row(wrap=True, spacing=12, run_spacing=12, vertical_alignment=ft.CrossAxisAlignment.START)
+    banners_card = card(banners_row, title="Current banners", icon=ft.Icons.STARS_ROUNDED, visible=False)
+
+    def load_banners():
+        """Worker thread. Hidden if paimon.moe can't be reached and nothing is cached."""
+        role = active_role()
+        try:
+            live = wiki.current_banners(wiki.banners(db.connect()), role and role["region"])
+        except Exception:
+            return
+        banners_row.controls = [banner_tile(*t) for t in live]
+        banners_card.visible = bool(live)
+        page.update()
 
     def set_view(key):
         def handler(e):
@@ -726,6 +760,7 @@ def main(page: ft.Page):
 
     wishes_view = ft.Column([
         page_head(WISHES),
+        banners_card,
         sync_card,
         stats_view,
     ], spacing=16, horizontal_alignment=STRETCH)
@@ -1055,7 +1090,7 @@ def main(page: ft.Page):
     # Public catalogue (HoYoLAB wiki + paimon.moe achievements), cached in SQLite for a week.
     WIKI_CATS = {"Characters": ft.Icons.PEOPLE_ROUNDED, "Weapons": ft.Icons.HARDWARE_ROUNDED,
                  "Artifacts": ft.Icons.DIAMOND_ROUNDED, "Enemies": ft.Icons.PEST_CONTROL_ROUNDED,
-                 "Achievements": ft.Icons.EMOJI_EVENTS_ROUNDED}
+                 "Collectibles": ft.Icons.COLLECTIONS_ROUNDED, "Achievements": ft.Icons.EMOJI_EVENTS_ROUNDED}
     WIKI_PAGE = 60  # NOTE: tiles rendered per "Show more"; switch to a virtualized GridView if it lags
     wiki_state = {"cat": "Characters", "items": [], "limit": WIKI_PAGE, "done": set()}
     wiki_search = ft.TextField(hint_text="Search", prefix_icon=ft.Icons.SEARCH_ROUNDED, width=260, dense=True,
@@ -1250,7 +1285,7 @@ def main(page: ft.Page):
         page.pop_dialog()
         vault.delete()
         bound_roles.clear()
-        loaded.difference_update({EVENTS, WORLD, CHARACTERS})
+        loaded.difference_update({EVENTS, WISHES, WORLD, CHARACTERS})
         account_row.visible = False
         profiles.controls = []
         world_body.controls = [world_locked]
@@ -1343,7 +1378,7 @@ def main(page: ft.Page):
         db.set_meta(db.connect(), "default_uid", e.control.value)
         uid_pick.value = None  # let the Wishes tab follow the new default
         refresh_stats()
-        loaded.difference_update({EVENTS, WORLD, CHARACTERS})
+        loaded.difference_update({EVENTS, WISHES, WORLD, CHARACTERS})
         ensure_loaded(current["i"])
 
     account_pick = ft.Dropdown(label="Game account", width=320, dense=True, filled=True, border_radius=14,

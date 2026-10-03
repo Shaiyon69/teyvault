@@ -1,3 +1,5 @@
+import datetime
+import json
 import unittest
 
 from teyvat import db, gui, wiki, wish
@@ -50,7 +52,7 @@ class TestWiki(unittest.TestCase):
   ],
 ];
 """
-        rows = wiki.parse_timeline(js)
+        rows = wiki.parse_js(js)
         self.assertEqual(rows[0][0]["description"], "Line one.\nLine two: true")
         self.assertIs(rows[0][0]["timezoneDependent"], True)
         start, _ = wiki.event_times(rows[0][0], "os_usa")
@@ -59,6 +61,57 @@ class TestWiki(unittest.TestCase):
         self.assertEqual(start.utcoffset().total_seconds(), 8 * 3600)
         chart = gui.timeline_chart(rows, "os_euro")
         self.assertTrue(chart.controls)
+
+    def test_current_banners(self):
+        js = """export const banners = {
+  characters: [
+    {
+      name: 'Old',
+      start: '2026-09-01 18:00:00',
+      end: '2026-09-22 14:59:00',
+      featured: ['flins'],
+    },
+    // {
+    //   name: 'Commented out',
+    // },
+    {
+      name: 'Now',
+      start: '2026-09-23 06:00:00',
+      end: '2026-10-13 17:59:59',
+      featured: ['kuki_shinobu'],
+      timezoneDependent: true,
+    },
+  ],
+  weapons: [
+    {
+      name: 'Next',
+      start: '2026-10-14 06:00:00',
+      end: '2026-11-03 17:59:59',
+      featured: ['aqua_simulacra'],
+    },
+  ],
+};
+"""
+        data = wiki.parse_js(js)
+        now = datetime.datetime(2026, 10, 3, tzinfo=datetime.timezone.utc)
+        live = wiki.current_banners(data, "os_euro", now)
+        self.assertEqual([(pool, b["name"]) for pool, b, *_ in live],
+                         [("Character Event Wish", "Now"), ("Weapon Event Wish", "Next")])
+        wiki._icons.clear()
+        wiki._icons.update({"": None, "Kuki Shinobu": "k.png"})  # skip the DB read
+        self.assertEqual(wiki.name_for("kuki_shinobu"), "Kuki Shinobu")
+        self.assertEqual(wiki.name_for("new_one"), "New One")
+        self.assertTrue(gui.banner_tile(*live[0]).content.controls)
+        wiki._icons.clear()
+
+    def test_menu_cache_skips_refetch_when_count_unchanged(self):
+        conn = db.connect(":memory:")
+        stale = (datetime.date.today() - datetime.timedelta(5)).isoformat()
+        db.set_meta(conn, "wiki:x", json.dumps({"date": stale, "data": [1, 2]}))
+        fetched = []
+        got = wiki._cached(conn, "wiki:x", lambda: fetched.append(1) or [1, 2, 3], unchanged=lambda old: len(old) == 2)
+        self.assertEqual((got, fetched), ([1, 2], []))
+        self.assertEqual(json.loads(db.get_meta(conn, "wiki:x"))["date"], datetime.date.today().isoformat())
 
     def test_achievement_ticks_round_trip(self):
         conn = db.connect(":memory:")

@@ -1,5 +1,6 @@
-"""Game catalogue for the Wiki tab: HoYoLAB's own wiki (characters, weapons, artifacts, enemies) and
-paimon.moe's achievement list and event timeline. All public, fetched page by page and cached in the `meta` table."""
+"""Game catalogue for the Wiki tab: HoYoLAB's own wiki (characters, weapons, artifacts, enemies, collectibles) and
+paimon.moe's achievement list, event timeline and banners. All public, fetched page by page and cached in the `meta`
+table. Caches are checked daily, so a new patch shows up without pressing refresh."""
 import ast
 import datetime
 import json
@@ -7,25 +8,31 @@ import re
 import time
 import urllib.request
 
-from teyvat import db
+from teyvat import db, wish
 from teyvat.hoyolab import SSL_CONTEXT, UA, request
 
 WIKI_LIST_URL = "https://sg-wiki-api.hoyolab.com/hoyowiki/genshin/wapi/get_entry_page_list"
 WIKI_ENTRY_URL = "https://wiki.hoyolab.com/pc/genshin/entry/{}"
 ACHIEVEMENTS_URL = "https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/src/data/achievement/en.json"
 TIMELINE_URL = "https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/src/data/timeline.js"
+BANNERS_URL = "https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/src/data/banners.js"
 # Each server's clock (fixed offsets, no daylight saving).
 SERVER_UTC = {"os_usa": -5, "os_euro": 1, "os_asia": 8, "os_cht": 8}
 MENUS = {"Characters": 2, "Weapons": 4, "Artifacts": 5, "Enemies": 7}
+# Shown together as "Collectibles", told apart by a "Type" filter.
+COLLECTIBLES = {"Namecards": 35, "Wings": 33, "Outfits": 34}
+# Wish pools in paimon.moe's banners.js -> what the game calls them.
+BANNER_POOLS = {"characters": "Character Event Wish", "weapons": "Weapon Event Wish", "chronicled": "Chronicled Wish"}
 PAGE_SIZE = 50  # the API rejects more
 PAGE_DELAY_S = 1
-CACHE_DAYS = 7
+CACHE_DAYS = 1
 # filter_values keys -> what the filter bar calls them (unknown keys get a title-cased fallback)
 LABELS = {
     "character_vision": "Element", "character_weapon": "Weapon", "character_rarity": "Rarity",
     "character_region": "Region", "character_property": "Ascension stat",
     "weapon_type": "Type", "weapon_rarity": "Rarity", "weapon_property": "Substat",
     "filter_key_43": "Rarity", "reliquary_effect": "Set bonus", "enemy_and_monster_type": "Type",
+    "collectible": "Type", "filter_key_52": "Rarity",
 }
 
 
@@ -33,14 +40,15 @@ def label(key) -> str:
     return LABELS.get(key) or key.replace("_", " ").title()
 
 
-def _cached(conn, key, fetch, refresh=False, days=CACHE_DAYS):
-    """Cached JSON under meta[key]: {"date": iso, "data": ...}, refetched after `days`."""
+def _cached(conn, key, fetch, refresh=False, days=CACHE_DAYS, unchanged=None):
+    """Cached JSON under meta[key]: {"date": iso, "data": ...}, refetched after `days`.
+    `unchanged(data)`, when given, is a cheap check that skips the full refetch while it holds."""
     hit = json.loads(db.get_meta(conn, key) or "null")
     fresh = hit and datetime.date.fromisoformat(hit["date"]) > datetime.date.today() - datetime.timedelta(days)
     if hit and fresh and not refresh:
         return hit["data"]
     try:
-        data = fetch()
+        data = hit["data"] if hit and not refresh and unchanged and unchanged(hit["data"]) else fetch()
     except Exception:
         if hit:  # offline: an old catalogue beats none
             return hit["data"]
@@ -49,12 +57,15 @@ def _cached(conn, key, fetch, refresh=False, days=CACHE_DAYS):
     return data
 
 
+def _page(menu_id, page, size=PAGE_SIZE) -> dict:
+    return request(WIKI_LIST_URL, body={"menu_id": str(menu_id), "page_num": page, "page_size": size, "use_es": True},
+                   referer="https://wiki.hoyolab.com/", headers={"x-rpc-language": "en-us"})["data"]
+
+
 def _fetch_menu(menu_id, sleep=time.sleep) -> list[dict]:
     out, page = [], 1
     while True:
-        data = request(WIKI_LIST_URL, body={"menu_id": str(menu_id), "page_num": page, "page_size": PAGE_SIZE,
-                                            "use_es": True},
-                       referer="https://wiki.hoyolab.com/", headers={"x-rpc-language": "en-us"})["data"]
+        data = _page(menu_id, page)
         out += [slim(e) for e in data["list"]]
         if len(out) >= int(data["total"]) or not data["list"]:
             return out
@@ -75,10 +86,20 @@ def slim(e) -> dict:
     }
 
 
+def _menu(conn, menu, refresh=False) -> list[dict]:
+    """One menu's entries. Once a day a one-entry request compares the total, and only a new count
+    (a patch added entries) downloads the whole list again."""
+    # NOTE: an entry edited in place (same count) waits for the refresh button.
+    return _cached(conn, f"wiki:{menu}", lambda: _fetch_menu(menu), refresh,
+                   unchanged=lambda old: len(old) == int(_page(menu, 1, 1)["total"]))
+
+
 def entries(conn, category, refresh=False) -> list[dict]:
-    menu = MENUS[category]
     _icons.clear()
-    return _cached(conn, f"wiki:{menu}", lambda: _fetch_menu(menu), refresh)
+    if category == "Collectibles":
+        return [{**e, "filters": {"collectible": [kind], **e["filters"]}}
+                for kind, menu in COLLECTIBLES.items() for e in _menu(conn, menu, refresh)]
+    return _menu(conn, MENUS[category], refresh)
 
 
 def filters(items) -> dict[str, list[str]]:
@@ -93,7 +114,7 @@ def filters(items) -> dict[str, list[str]]:
 def rarity(e) -> int:
     """5 for "5-Star" / "★★★★★", 0 when the entry has none (enemies)."""
     stars = [v.count("★") or int(v[0]) for k, vs in e["filters"].items()
-             if "rarity" in k or k == "filter_key_43" for v in vs if "★" in v or v[:1].isdigit()]
+             for v in vs if "★" in v or ("rarity" in k and v[:1].isdigit())]
     return max(stars, default=0)
 
 
@@ -113,19 +134,41 @@ def achievements(conn, refresh=False) -> list[dict]:
                    lambda: flatten_achievements(_get_json(ACHIEVEMENTS_URL)), refresh)
 
 
-def parse_timeline(js) -> list[list[dict]]:
-    """paimon.moe's timeline.js (a JS module, not JSON) -> rows of events; events in a row never overlap.
+def parse_js(js):
+    """paimon.moe's `export const x = <literal>;` data modules (timeline.js, banners.js) -> Python.
     Prettier puts every key at the start of a line, so quoting those makes it a Python literal."""
     # NOTE: breaks if paimon.moe adds JS expressions (e.g. `'a' + 'b'`); then literal_eval raises
     # and the stale cache is kept.
-    body = js[js.index("["):js.rindex("]") + 1]
+    body = js[js.index("=") + 1:].strip().rstrip(";")
+    body = re.sub(r"^\s*//.*\n", "", body, flags=re.M)  # commented-out entries
     body = re.sub(r"^(\s*)(\w+):", r'\1"\2":', body, flags=re.M)
     body = re.sub(r'(":\s*)(true|false)(?=,?$)', lambda m: m[1] + m[2].title(), body, flags=re.M)
     return ast.literal_eval(body)
 
 
 def timeline(conn, refresh=False) -> list[list[dict]]:
-    return _cached(conn, "wiki:timeline", lambda: parse_timeline(_get(TIMELINE_URL).decode()), refresh, days=1)
+    """Rows of events; events in a row never overlap."""
+    return _cached(conn, "wiki:timeline", lambda: parse_js(_get(TIMELINE_URL).decode()), refresh)
+
+
+def banners(conn, refresh=False) -> dict:
+    """Banner history and the current/next ones, featured items as paimon.moe ids. Only the event pools are kept."""
+    return _cached(conn, "wiki:banners",
+                   lambda: {k: v for k, v in parse_js(_get(BANNERS_URL).decode()).items() if k in BANNER_POOLS},
+                   refresh)
+
+
+def current_banners(data, region=None, now=None) -> list[tuple[str, dict, datetime.datetime, datetime.datetime]]:
+    """(pool name, banner, start, end) for each event pool: the banner running now, or else the next one.
+    Pools with nothing running or announced (Chronicled between its runs) are left out."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    out = []
+    for pool, name in BANNER_POOLS.items():
+        ahead = sorted((t for t in ((b, *event_times(b, region)) for b in data.get(pool, [])) if t[2] > now),
+                       key=lambda t: t[1])
+        if ahead:
+            out.append((name, *ahead[0]))
+    return out
 
 
 def event_times(e, region=None) -> tuple[datetime.datetime, datetime.datetime]:
@@ -148,6 +191,12 @@ def _get_json(url):
 
 
 _icons = {}
+
+
+def name_for(paimon_id) -> str:
+    """Display name for a paimon.moe id ("kuki_shinobu") from the cached wiki lists, else a title-cased guess."""
+    icon_for("")  # loads the names
+    return next((n for n in _icons if n and wish.slug(n) == paimon_id), paimon_id.replace("_", " ").title())
 
 
 def icon_for(name) -> str | None:
