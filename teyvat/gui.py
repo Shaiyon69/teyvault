@@ -4,8 +4,8 @@ import datetime
 import importlib.util
 import json
 import re
+import asyncio
 import threading
-import urllib.parse
 from importlib import resources
 from pathlib import Path
 
@@ -84,9 +84,7 @@ COOKIE_HELP = (
     "4. Paste them below as: ltoken_v2=...; ltuid_v2=...; cookie_token_v2=...; account_id_v2=..."
 )
 # HoYoLAB's Geetest v3 captcha for the phone login, in a WebView. The solved result comes back as a
-# console message and, in case that channel stays silent, as a navigation to CAPTCHA_DONE_URL whose
-# fragment carries it (on_page_started sees the URL before anything loads).
-CAPTCHA_DONE_URL = "https://teyvault.invalid/geetest#"
+# console message and in document.title, which Python polls in case the console channel stays silent.
 CAPTCHA_HTML = """<!doctype html><html><head><meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <script src="https://static.geetest.com/static/js/gt.0.5.0.js"></script></head>
@@ -101,7 +99,7 @@ initGeetest({gt: "__GT__", challenge: "__CHALLENGE__", new_captcha: true, api_se
     var v = JSON.stringify(c.getValidate());
     document.getElementById("msg").textContent = "Verifying...";
     console.log("geetest:" + v);
-    setTimeout(function () { location.href = "__DONE__" + encodeURIComponent(v); }, 300);
+    document.title = "geetest:" + v;
   });
 });
 </script></body></html>"""
@@ -492,19 +490,24 @@ def main(page: ft.Page):
 
     def guarded(fn):
         """Wrap a blocking action: disable the button while it runs, show result or error.
-        Sync handlers run on a worker thread, so each action opens its own DB connection."""
+        Flet runs sync handlers on its event loop, so fn goes to a worker thread (else the UI and
+        every other event, e.g. a dialog's Cancel, freeze until it returns); hence each action
+        opens its own DB connection."""
         def handler(e):
             e.control.disabled = True
             e.control.update()
-            try:
-                msg = fn()
-            except (Exception, SystemExit) as ex:
-                msg = str(ex) or type(ex).__name__
-            finally:
-                e.control.disabled = False
-                e.control.update()
-            if msg:
-                toast(msg)
+
+            def work():
+                try:
+                    msg = fn()
+                except (Exception, SystemExit) as ex:
+                    msg = str(ex) or type(ex).__name__
+                finally:
+                    e.control.disabled = False
+                    e.control.update()
+                if msg:
+                    toast(msg)
+            page.run_thread(work)
         return handler
 
     def logged_in() -> bool:
@@ -1481,22 +1484,25 @@ def main(page: ft.Page):
             if e.message.startswith("geetest:"):
                 got(e.message.removeprefix("geetest:"))
 
-        def on_started(e):
-            if (e.data or "").startswith(CAPTCHA_DONE_URL):
-                got(urllib.parse.unquote(e.data.removeprefix(CAPTCHA_DONE_URL)))
-
-        html = (CAPTCHA_HTML.replace("__GT__", need.gt).replace("__CHALLENGE__", need.challenge)
-                .replace("__DONE__", CAPTCHA_DONE_URL))
+        html = CAPTCHA_HTML.replace("__GT__", need.gt).replace("__CHALLENGE__", need.challenge)
         view = flet_webview.WebView(url="data:text/html;base64," + base64.b64encode(html.encode()).decode(),
-                                    on_console_message=on_message, on_page_started=on_started, expand=True)
+                                    on_console_message=on_message, expand=True)
         page.show_dialog(ft.AlertDialog(
             modal=True, title=ft.Text("Confirm it's you"), inset_padding=ft.Padding.all(12),
             content=ft.Container(view, width=(page.width or 360) - 72, height=420),
             actions=[ft.TextButton("Cancel", on_click=lambda e: done.set())]))
-        done.wait(300)
+        for _ in range(600):  # 5 minutes
+            if done.wait(0.5):
+                break
+            try:
+                title = asyncio.run_coroutine_threadsafe(view.get_title(), page.loop).result(5) or ""
+            except Exception:  # not mounted yet, or the platform can't report it
+                continue
+            if title.startswith("geetest:"):
+                got(title.removeprefix("geetest:"))
         page.pop_dialog()
         if not solved:
-            raise RuntimeError("Sign-in cancelled.")
+            raise RuntimeError("Sign-in cancelled." if done.is_set() else "The captcha timed out. Try again.")
         return solved
 
     def do_password_login():
