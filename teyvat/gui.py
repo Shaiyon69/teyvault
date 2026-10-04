@@ -425,16 +425,21 @@ def main(page: ft.Page):
     seed = db.get_meta(conn0, "seed", next(iter(SEEDS)))
     mobile = page.platform in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS)
     desktop = not mobile and not page.web
+    # Tablets (shortest side 600 dp or more) get the PC layout: sidebar, wide tiles, filter rows.
+    # NOTE: decided once at startup; a foldable that unfolds mid-session keeps the phone layout until restart.
+    phone = mobile and min(page.width or 0, page.height or 0) < 600
+    # Sidebar with labels when there's room; tablets in portrait get the slim icon rail instead.
+    wide_rail = lambda: not mobile or (page.width or 0) >= 1000
     # Character/wiki tiles fill the row at any width (ResponsiveRow) instead of leaving a gap on the right.
     # Phones: three to a row, more in landscape. PC: 120 columns so window-size steps stay whole numbers
     # (the sidebar takes ~280 px, so e.g. a 1280 px window shows 8 per row).
-    tile_cols = 12 if mobile else 120
-    tile_col = {"xs": 4, "sm": 3, "md": 2} if mobile else {"xs": 60, "sm": 40, "md": 24, "lg": 20, "xl": 15, "xxl": 12}
-    tile_px = 56 if mobile else 72  # portrait size in character/wiki tiles
-    skel_tile = 96 if mobile else 112
+    tile_cols = 12 if phone else 120
+    tile_col = {"xs": 4, "sm": 3, "md": 2} if phone else {"xs": 60, "sm": 40, "md": 24, "lg": 20, "xl": 15, "xxl": 12}
+    tile_px = 56 if phone else 72  # portrait size in character/wiki tiles
+    skel_tile = 96 if phone else 112
 
     def tile_grid(tiles):
-        gap = 8 if mobile else 10
+        gap = 8 if phone else 10
         return ft.ResponsiveRow(tiles, columns=tile_cols, spacing=gap, run_spacing=gap)
     light = theme == "light" or theme == "system" and page.platform_brightness == ft.Brightness.LIGHT
     if light:
@@ -475,7 +480,7 @@ def main(page: ft.Page):
     def page_head(i):
         """Desktop: big page title + purpose. Mobile: the app bar has the title, keep only the purpose."""
         label, _, _, purpose = SECTIONS[i]
-        return ft.Column([ft.Text(label, size=28, weight=ft.FontWeight.BOLD, visible=not mobile,
+        return ft.Column([ft.Text(label, size=28, weight=ft.FontWeight.BOLD, visible=not phone,
                                   font_family=STYLE["heading_font"]),
                           muted(purpose)], spacing=2)
 
@@ -548,7 +553,7 @@ def main(page: ft.Page):
         return result
 
     # columns = tiles per row, so the calendar fills the card instead of leaving a gap on the right
-    rewards_grid = ft.ResponsiveRow(columns=5 if mobile else 7, spacing=6 if mobile else 8, run_spacing=8)
+    rewards_grid = ft.ResponsiveRow(columns=5 if phone else 7, spacing=6 if phone else 8, run_spacing=8)
     rewards_sub = muted("")
     rewards_card = card(rewards_sub, rewards_grid, title="Daily rewards", icon=ft.Icons.CALENDAR_MONTH_ROUNDED,
                         visible=False)
@@ -873,7 +878,7 @@ def main(page: ft.Page):
 
     def flow_regions(e=None):
         """Masonry: each card drops into the currently shortest column, so tall regions leave no gaps."""
-        width = (page.width or 0) - (32 if mobile else 274)  # minus nav rail and paddings
+        width = (page.width or 0) - (32 if phone else 274 if wide_rail() else 144)  # minus nav rail and paddings
         n = max(1, min(3, int(width // 360)))
         if e and (len(region_grid.controls) == n or region_grid not in world_body.controls):
             return
@@ -887,7 +892,6 @@ def main(page: ft.Page):
         if e:
             region_grid.update()
 
-    page.on_resize = flow_regions
 
     def region_card(w, kids):
         """One region per card: big icon + completion on top, levels as pills, sub-areas listed below."""
@@ -975,7 +979,7 @@ def main(page: ft.Page):
     characters_view = ft.Column([page_head(CHARACTERS), chars_body], spacing=16, horizontal_alignment=STRETCH)
     builds = {}  # character id -> (detail, property_map); fetched on first open, one call per character
 
-    roster = {"chars": [], "role": None}  # last loaded list, re-filtered without another request
+    roster = {"chars": [], "role": None, "release": {}}  # last loaded list, re-filtered without another request
     chars_count = muted("")
     chars_grid = ft.Column(spacing=12, horizontal_alignment=STRETCH)
     META_ROLES = ("On-field DPS", "Off-field DPS", "Support")
@@ -983,7 +987,7 @@ def main(page: ft.Page):
     def filter_bar(row, panel):
         """Search (plus any buttons) on one line; the filter dropdowns fold away behind a Filters button."""
         panel.visible, panel.wrap, panel.spacing, panel.run_spacing = False, True, 8, 8
-        toggle = (ft.IconButton(ft.Icons.TUNE_ROUNDED, tooltip="Filters") if mobile
+        toggle = (ft.IconButton(ft.Icons.TUNE_ROUNDED, tooltip="Filters") if phone
                   else ft.OutlinedButton("Filters", icon=ft.Icons.TUNE_ROUNDED))
 
         def flip(e):
@@ -1006,7 +1010,7 @@ def main(page: ft.Page):
     f_role = char_filter("Meta role", [(r, r) for r in META_ROLES], width=170)
     f_sort = ft.Dropdown(label="Sort", value="game", width=150, dense=True, filled=True, border_radius=14,
                          options=[ft.DropdownOption("game", "HoYoLAB order"), ft.DropdownOption("tier", "Meta tier"),
-                                  ft.DropdownOption("level", "Level")],
+                                  ft.DropdownOption("level", "Level"), ft.DropdownOption("release", "Release order")],
                          on_select=lambda e: show_chars())
     f_group = ft.Dropdown(label="Group by", value="none", width=150, dense=True, filled=True, border_radius=14,
                           options=[ft.DropdownOption(k, v) for k, v in (
@@ -1014,7 +1018,7 @@ def main(page: ft.Page):
                               ("rarity", "Rarity"), ("tier", "Meta tier"), ("role", "Meta role"))],
                           on_select=lambda e: show_chars())
     f_search = ft.TextField(hint_text="Search characters", prefix_icon=ft.Icons.SEARCH_ROUNDED,
-                            width=None if mobile else 220, expand=mobile, dense=True, filled=True, border_radius=14,
+                            width=None if phone else 220, expand=phone, dense=True, filled=True, border_radius=14,
                             on_change=lambda e: show_chars())
     chars_filters = filter_bar([f_search], ft.Row([f_element, f_weapon, f_rarity, f_tier, f_role, f_sort, f_group]))
 
@@ -1040,6 +1044,9 @@ def main(page: ft.Page):
             shown.sort(key=lambda c: min((ranks[r[0]] for r in ratings(c)), default=len(ranks)))
         elif f_sort.value == "level":
             shown.sort(key=lambda c: -c["level"])
+        elif f_sort.value == "release":  # oldest first; ones newer than paimon.moe's data go last
+            slug = lambda n: "traveler" if n.lower().startswith("traveler") else wish.slug(n)
+            shown.sort(key=lambda c: roster["release"].get(slug(c["name"]), "9999"))
         def best(c):  # top rating that passes the tier and role filters, or None
             return next((r for r in ratings(c) if any_(f_tier, r[0])), None)
 
@@ -1067,21 +1074,21 @@ def main(page: ft.Page):
     def char_tile(c, role):
         w = c["weapon"]
         badge = [ft.Container(pill(t, TIER_COLORS[t]), right=-6, top=-6) for t, _ in meta_ratings(c)[:1]]
-        icon = 16 if mobile else 20
+        icon = 16 if phone else 20
         weapon = ft.Image(src=wiki.image(w["icon"]), width=icon, height=icon,
                           error_content=ft.Icon(ft.Icons.HARDWARE_ROUNDED, size=icon - 4))
         lv, refine = f"Lv {c['level']} · C{c['actived_constellation_num']}", f"R{w['affix_level']}"
         # Phones: level, constellation, weapon and refinement on one line to keep the tile short.
-        info = ([ft.Row([weapon, muted(f"{lv} · {refine}", size=11)], spacing=2, tight=True)] if mobile else
+        info = ([ft.Row([weapon, muted(f"{lv} · {refine}", size=11)], spacing=2, tight=True)] if phone else
                 [muted(lv, size=12), ft.Row([weapon, muted(refine, size=12)], spacing=2, tight=True)])
         return ft.Container(ft.Column([
             ft.Stack([portrait(c["icon"], c["rarity"], tile_px), *badge],
                      width=tile_px, height=tile_px, clip_behavior=ft.ClipBehavior.NONE),
-            ft.Text(c["name"], size=12 if mobile else 14, weight=ft.FontWeight.W_600, no_wrap=True,
+            ft.Text(c["name"], size=12 if phone else 14, weight=ft.FontWeight.W_600, no_wrap=True,
                     overflow=ft.TextOverflow.ELLIPSIS, color=ELEMENT_COLORS.get(c["element"])),
             *info,
-        ], spacing=2 if mobile else 4, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-            padding=6 if mobile else 10, border_radius=16, bgcolor=ft.Colors.SURFACE_CONTAINER,
+        ], spacing=2 if phone else 4, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+            padding=6 if phone else 10, border_radius=16, bgcolor=ft.Colors.SURFACE_CONTAINER,
             tooltip=None if mobile else f"{c['name']} · {c['element']} · {w['name']}",
             on_click=lambda e: open_build(c, role), col=tile_col)
 
@@ -1159,9 +1166,10 @@ def main(page: ft.Page):
 
     def open_build(c, role):
         body = ft.Container(ft.Column([skeleton(1, height=240), skeleton(4, height=56)], spacing=10, tight=True),
-                            width=(page.width or 360) - 72 if mobile else 880, height=None if mobile else 600)
+                            width=(page.width or 360) - 72 if phone else min(880, (page.width or 952) - 72),
+                            height=None if phone else min(600, (page.height or 700) - 100))
         page.show_dialog(ft.AlertDialog(
-            inset_padding=ft.Padding.all(12) if mobile else None,
+            inset_padding=ft.Padding.all(12) if phone else None,
             title=ft.Row([portrait(c["icon"], c["rarity"], 44), ft.Column([
                 ft.Text(c["name"], size=18, weight=ft.FontWeight.BOLD, color=ELEMENT_COLORS.get(c["element"])),
                 muted(f"{c['element']} · Lv {c['level']} · C{c['actived_constellation_num']} · "
@@ -1196,7 +1204,11 @@ def main(page: ft.Page):
             chars_body.update()
             return
         builds.clear()
-        roster.update(chars=chars, role=role)
+        try:
+            release = wiki.release_dates(wiki.banners(db.connect()))
+        except Exception:
+            release = {}  # offline with no cache: "Release order" keeps HoYoLAB's order
+        roster.update(chars=chars, role=role, release=release)
         chars_body.controls = [chars_filters, chars_count, chars_grid]
         show_chars()
         # Roster shows right away (icons not cached yet load from the web); keep them for next time.
@@ -1207,19 +1219,18 @@ def main(page: ft.Page):
     WIKI_CATS = {"Characters": ft.Icons.PEOPLE_ROUNDED, "Weapons": ft.Icons.HARDWARE_ROUNDED,
                  "Artifacts": ft.Icons.DIAMOND_ROUNDED, "Enemies": ft.Icons.PEST_CONTROL_ROUNDED,
                  "Collectibles": ft.Icons.COLLECTIONS_ROUNDED, "Achievements": ft.Icons.EMOJI_EVENTS_ROUNDED}
-    # NOTE: tiles rendered per "Show more" (fewer on phones); switch to a virtualized GridView if it lags
-    WIKI_PAGE = 30 if mobile else 60
+    # NOTE: tiles rendered a page at a time as you scroll (fewer on phones); switch to a virtualized GridView if it lags
+    WIKI_PAGE = 30 if phone else 60
     wiki_state = {"cat": "Characters", "items": [], "limit": WIKI_PAGE, "done": set()}
-    wiki_search = ft.TextField(hint_text="Search", prefix_icon=ft.Icons.SEARCH_ROUNDED, width=None if mobile else 260,
-                               expand=mobile, dense=True,
+    wiki_search = ft.TextField(hint_text="Search", prefix_icon=ft.Icons.SEARCH_ROUNDED, width=None if phone else 260,
+                               expand=phone, dense=True,
                                filled=True, border_radius=14, on_change=lambda e: show_wiki(reset=True))
-    wiki_filters = ft.Row(wrap=not mobile, spacing=8, run_spacing=8)
+    wiki_filters = ft.Row(wrap=not phone, spacing=8, run_spacing=8)
     wiki_sort = ft.Dropdown(label="Sort", value="name", width=150, dense=True, filled=True, border_radius=14,
                             options=[ft.DropdownOption("name", "Name"), ft.DropdownOption("rarity", "Rarity")],
                             on_select=lambda e: show_wiki(reset=True))
     wiki_count = muted("")
     wiki_grid = ft.Column(spacing=12, horizontal_alignment=STRETCH)
-    wiki_more = ft.OutlinedButton("Show more", icon=ft.Icons.EXPAND_MORE_ROUNDED, visible=False)
 
     def wiki_dropdown(label, values, key):
         return ft.Dropdown(label=label, value="All", width=170, dense=True, filled=True, border_radius=14, data=key,
@@ -1232,11 +1243,11 @@ def main(page: ft.Page):
             ft.Stack([portrait(e["icon"], r, tile_px, WIKI_CATS[wiki_state["cat"]]),
                       ft.Container(ft.Icon(ft.Icons.CHECK_CIRCLE_ROUNDED, size=18, color=WON), right=-4, top=-4,
                                    visible=owned)], width=tile_px, height=tile_px, clip_behavior=ft.ClipBehavior.NONE),
-            ft.Text(e["name"], size=12 if mobile else 13, weight=ft.FontWeight.W_600, max_lines=2,
+            ft.Text(e["name"], size=12 if phone else 13, weight=ft.FontWeight.W_600, max_lines=2,
                     overflow=ft.TextOverflow.ELLIPSIS, text_align=ft.TextAlign.CENTER),
             muted("★" * r, size=11, color=GOLD if r == 5 else PURPLE if r == 4 else None, visible=bool(r)),
-        ], spacing=2 if mobile else 4, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-            padding=6 if mobile else 8, border_radius=STYLE["radius"] - 4, bgcolor=STYLE["card_bg"],
+        ], spacing=2 if phone else 4, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+            padding=6 if phone else 8, border_radius=STYLE["radius"] - 4, bgcolor=STYLE["card_bg"],
             border=STYLE["border"], on_click=lambda ev: open_entry(e),
             # phones have no hover, so long tooltip text would only slow every redraw
             tooltip=None if mobile else e["desc"][:400] or e["name"], col=tile_col)
@@ -1262,7 +1273,7 @@ def main(page: ft.Page):
                                    muted(skill(text), size=13, selectable=True)], spacing=2, expand=True),
                     ], spacing=10, vertical_alignment=ft.CrossAxisAlignment.START))
                 elif name and len(text) < 120:  # attribute line: label | value
-                    blocks.append(ft.Row([muted(name, size=13, width=110 if mobile else 150),
+                    blocks.append(ft.Row([muted(name, size=13, width=110 if phone else 150),
                                           ft.Text(text, size=13, selectable=True, expand=True)], spacing=8,
                                          vertical_alignment=ft.CrossAxisAlignment.START))
                 else:  # set bonus, lore
@@ -1275,7 +1286,8 @@ def main(page: ft.Page):
         """Wiki tile -> its page inside the app (fetched once, then read from the local cache)."""
         r, cat = wiki.rarity(e), wiki_state["cat"]
         body = ft.Container(ft.Column([skeleton(1, height=200), skeleton(4, height=48)], spacing=10, tight=True),
-                            width=(page.width or 360) - 72 if mobile else 760, height=(page.height or 700) - 220 if mobile else 560)
+                            width=(page.width or 360) - 72 if phone else min(760, (page.width or 832) - 72),
+                            height=(page.height or 700) - 220 if phone else min(560, (page.height or 700) - 140))
         tags = [v for vs in e["filters"].values() for v in vs if "★" not in v and not v[:1].isdigit()]
         shown = {}
 
@@ -1285,7 +1297,7 @@ def main(page: ft.Page):
                 body.content = entry_view(shown["d"])
                 body.update()
         page.show_dialog(ft.AlertDialog(
-            inset_padding=ft.Padding.all(12) if mobile else None,
+            inset_padding=ft.Padding.all(12) if phone else None,
             title=ft.Row([portrait(e["icon"], r, 44, WIKI_CATS[cat]), ft.Column([
                 ft.Text(e["name"], size=18, weight=ft.FontWeight.BOLD),
                 muted(" · ".join(["★" * r] * bool(r) + tags), size=13),
@@ -1346,20 +1358,20 @@ def main(page: ft.Page):
             owned = {c["name"] for c in roster["chars"]} if cat == "Characters" else set()
             wiki_count.value = f"{len(shown):,} of {len(items):,} {cat.lower()}. Tap one for details."
             wiki_grid.controls = [tile_grid([wiki_tile(e, e["name"] in owned) for e in shown[:wiki_state["limit"]]])]
-        wiki_more.visible = len(shown) > wiki_state["limit"]
+        wiki_state["more"] = len(shown) > wiki_state["limit"]
         wiki_body.update()
 
-    def more_wiki(e):
-        wiki_state["limit"] += WIKI_PAGE
-        show_wiki()
-
-    wiki_more.on_click = more_wiki
+    def on_page_scroll(e):
+        """Infinite scroll: the next page of wiki tiles loads as the bottom comes into view."""
+        if current["i"] == WIKI and wiki_state.get("more") and e.pixels >= e.max_scroll_extent - 600:
+            wiki_state["limit"] += WIKI_PAGE
+            show_wiki()
 
     def load_wiki(refresh=False):
         """Fetch (or read the cache of) the picked category, then rebuild its filter bar. Worker thread."""
         cat = wiki_state["cat"]
         wiki_count.value = f"Loading {cat.lower()}..."
-        wiki_grid.controls = [skeleton(12, height=56) if cat == "Achievements" else skeleton(12 if mobile else 18, tile=skel_tile)]
+        wiki_grid.controls = [skeleton(12, height=56) if cat == "Achievements" else skeleton(12 if phone else 18, tile=skel_tile)]
         wiki_body.update()
         conn = db.connect()
         try:
@@ -1393,15 +1405,15 @@ def main(page: ft.Page):
         page.run_thread(load_wiki)
 
     wiki_cat = ft.Dropdown(label="Category", value="Characters", leading_icon=WIKI_CATS["Characters"],
-                           width=None if mobile else 210, expand=mobile, dense=True, filled=True, border_radius=14,
+                           width=None if phone else 210, expand=phone, dense=True, filled=True, border_radius=14,
                            options=[ft.DropdownOption(k, k, leading_icon=i) for k, i in WIKI_CATS.items()],
                            on_select=pick_wiki_cat)
     wiki_refresh = ft.IconButton(ft.Icons.REFRESH_ROUNDED, tooltip="Download again",
                                  on_click=guarded(lambda: load_wiki(refresh=True)))
-    wiki_bar = filter_bar([wiki_search, wiki_refresh] if mobile else [wiki_cat, wiki_search, wiki_refresh], wiki_filters)
+    wiki_bar = filter_bar([wiki_search, wiki_refresh] if phone else [wiki_cat, wiki_search, wiki_refresh], wiki_filters)
     wiki_body = ft.Column([
-        *([ft.Row([wiki_cat])] if mobile else []), wiki_bar,  # phones: the category picker gets its own line
-        wiki_count, wiki_grid, ft.Row([wiki_more]),
+        *([ft.Row([wiki_cat])] if phone else []), wiki_bar,  # phones: the category picker gets its own line
+        wiki_count, wiki_grid,
     ], spacing=12, horizontal_alignment=STRETCH)
     wiki_view = ft.Column([page_head(WIKI), wiki_body], spacing=16, horizontal_alignment=STRETCH)
 
@@ -1641,7 +1653,7 @@ def main(page: ft.Page):
         loaded.difference_update({EVENTS, WISHES, WORLD, CHARACTERS})
         ensure_loaded(current["i"])
 
-    account_pick = ft.Dropdown(label="Game account", width=min(320, (page.width or 360) - 72) if mobile else 320, dense=True, filled=True, border_radius=14,
+    account_pick = ft.Dropdown(label="Game account", width=min(320, (page.width or 360) - 72) if phone else 320, dense=True, filled=True, border_radius=14,
                                on_select=set_account)
     account_row = ft.Column([muted("Which account World, Characters and Wishes show first."), account_pick],
                             spacing=8, visible=False)
@@ -1781,7 +1793,7 @@ def main(page: ft.Page):
                               horizontal_alignment=STRETCH)
 
     # --- Shell --------------------------------------------------------------
-    # PC: sidebar (lots of width, mouse). Mobile: bottom bar (thumb reach) + app bar with the page title.
+    # PC and tablets: sidebar (lots of width). Phones: bottom bar (thumb reach) + app bar with the page title.
     # All tabs stay mounted (only visibility toggles) so background updates never hit a detached control.
     views = [today_view, events_view, wishes_view, world_view, characters_view, wiki_view, account_view,
              settings_view]
@@ -1790,7 +1802,7 @@ def main(page: ft.Page):
     def select(i):
         current["i"] = i
         ensure_loaded(i)
-        if i < len(nav.destinations):  # mobile's bottom bar has no Settings; it keeps the last tab lit
+        if i < len(nav.destinations):  # the phone bottom bar has no Settings; it keeps the last tab lit
             nav.selected_index = i
         section_title.value = SECTIONS[i][0]
         for j, v in enumerate(views):
@@ -1810,7 +1822,7 @@ def main(page: ft.Page):
         url=APP_REPO, tooltip=APP_REPO, padding=ft.Padding.symmetric(horizontal=8, vertical=4), border_radius=8)
     on_change = lambda e: select(e.control.selected_index)
 
-    if mobile:
+    if phone:
         # Icons only (the label is the long-press tooltip), so the bar stays slim.
         nav = ft.NavigationBar(on_change=on_change, label_behavior=ft.NavigationBarLabelBehavior.ALWAYS_HIDE,
                                height=64, destinations=[
@@ -1821,15 +1833,16 @@ def main(page: ft.Page):
                                 actions=[ft.IconButton(ft.Icons.SETTINGS_OUTLINED, tooltip="Settings",
                                                        on_click=lambda e: select(SETTINGS)),
                                          ft.Container(status_chip, padding=ft.Padding.only(right=12))])
-        body = ft.SafeArea(ft.Column(views, scroll=ft.ScrollMode.AUTO, spacing=16,
-                                     horizontal_alignment=STRETCH), expand=True, minimum_padding=16)
+        body = ft.SafeArea(ft.Column(views, scroll=ft.ScrollMode.AUTO, spacing=16, on_scroll=on_page_scroll,
+                                     scroll_interval=200, horizontal_alignment=STRETCH),
+                           expand=True, minimum_padding=16)
     else:
+        brand = ft.Column([ft.Text(APP, size=20, weight=ft.FontWeight.BOLD),
+                           muted(datetime.date.today().strftime("%a, %d %b"), size=13)], spacing=0)
         nav = ft.NavigationRail(
             on_change=on_change, selected_index=0, extended=True, min_extended_width=210,
             group_alignment=-0.85, bgcolor=ft.Colors.SURFACE_CONTAINER,
-            leading=ft.Container(ft.Row([logo, ft.Column([
-                ft.Text(APP, size=20, weight=ft.FontWeight.BOLD),
-                muted(datetime.date.today().strftime("%a, %d %b"), size=13)], spacing=0)], spacing=12),
+            leading=ft.Container(ft.Row([logo, brand], spacing=12),
                 padding=ft.Padding.only(top=12, bottom=24)),
             trailing=ft.Container(ft.Column([status_chip, watermark], spacing=8,
                                             horizontal_alignment=ft.CrossAxisAlignment.CENTER),
@@ -1837,13 +1850,32 @@ def main(page: ft.Page):
             pin_trailing_to_bottom=True,
             destinations=[ft.NavigationRailDestination(icon=icon, selected_icon=sel, label=label)
                           for label, icon, sel, _ in SECTIONS])
-        content = ft.Column(views, scroll=ft.ScrollMode.AUTO, spacing=16, horizontal_alignment=STRETCH)
+        content = ft.Column(views, scroll=ft.ScrollMode.AUTO, spacing=16, on_scroll=on_page_scroll,
+                            scroll_interval=200, horizontal_alignment=STRETCH)
+
+        def fit_rail():
+            """Labelled sidebar when wide; icons with labels underneath on a portrait tablet."""
+            wide = wide_rail()
+            nav.extended = wide
+            nav.label_type = None if wide else ft.NavigationRailLabelType.ALL
+            brand.visible = status_label.visible = watermark.visible = wide
+        fit_rail()
         if STYLE["page_bg"]:
             nav.bgcolor = STYLE["card_bg"]
         body = ft.Row([nav, ft.Container(content, expand=True, padding=ft.Padding.only(top=8, right=32, bottom=16))],
                       spacing=32, expand=True, vertical_alignment=ft.CrossAxisAlignment.STRETCH)
         if desktop:
             body = ft.Column([title_bar_for(page), body], spacing=0, expand=True)
+        if mobile:  # tablet: keep clear of the status and gesture bars
+            body = ft.SafeArea(body, expand=True)
+
+    def on_resize(e):
+        if not phone and nav.extended != wide_rail():
+            fit_rail()
+            page.update()
+        flow_regions(e)
+
+    page.on_resize = on_resize
 
     if STYLE["page_bg"]:  # Glass: everything floats over one gradient
         page.bgcolor = STYLE["page_bg"][1]

@@ -270,6 +270,25 @@ def banners(conn, refresh=False) -> dict:
                    refresh)
 
 
+# Characters no event banner ever featured: the launch roster, Aloy (a free gift in 2.1) and the
+# Miliastra Wonderland Manekins (6.1). Elemental Travelers ("Traveler (Anemo)") count as "traveler".
+UNBANNERED = {"amber": "2020-09-28", "kaeya": "2020-09-28", "lisa": "2020-09-28", "traveler": "2020-09-28",
+              "aloy": "2021-10-13", "manekin": "2025-10-22", "manekina": "2025-10-22"}
+
+
+def release_dates(data) -> dict[str, str]:
+    """paimon.moe id -> release date ("YYYY-MM-DD"): the first event banner featuring the character,
+    or the day a standard 5★ joined the pool if earlier (Keqing shipped at launch, her banner came later).
+    NOTE: characters newer than paimon.moe's data are missing; callers sort them last as the newest."""
+    dates = dict(UNBANNERED)
+    for b in sorted(data.get("characters", []), key=lambda b: b["start"]):
+        for pid in b.get("featured", []) + b.get("featuredRare", []):
+            dates.setdefault(pid, b["start"][:10])
+    for name, since in wish.load_standard().items():
+        dates[wish.slug(name)] = min(dates.get(wish.slug(name), since), since)
+    return dates
+
+
 def current_banners(data, region=None, now=None) -> list[tuple[str, dict, datetime.datetime, datetime.datetime]]:
     """(pool name, banner, start, end) for each event pool: the banner running now, or else the next one.
     Pools with nothing running or announced (Chronicled between its runs) are left out."""
