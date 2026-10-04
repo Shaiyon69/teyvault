@@ -5,6 +5,7 @@ import importlib.util
 import json
 import re
 import threading
+import urllib.parse
 from importlib import resources
 from pathlib import Path
 
@@ -83,7 +84,9 @@ COOKIE_HELP = (
     "4. Paste them below as: ltoken_v2=...; ltuid_v2=...; cookie_token_v2=...; account_id_v2=..."
 )
 # HoYoLAB's Geetest v3 captcha for the phone login, in a WebView. The solved result comes back as a
-# console message (flet-webview's only page -> Python channel on Android/iOS).
+# console message and, in case that channel stays silent, as a navigation to CAPTCHA_DONE_URL whose
+# fragment carries it (on_page_started sees the URL before anything loads).
+CAPTCHA_DONE_URL = "https://teyvault.invalid/geetest#"
 CAPTCHA_HTML = """<!doctype html><html><head><meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <script src="https://static.geetest.com/static/js/gt.0.5.0.js"></script></head>
@@ -94,7 +97,12 @@ initGeetest({gt: "__GT__", challenge: "__CHALLENGE__", new_captcha: true, api_se
   c.onReady(function () { document.getElementById("msg").textContent = "Solve the captcha"; c.verify(); });
   c.onClose(function () { document.getElementById("msg").textContent = "Tap to try again"; document.body.onclick = function () { c.verify(); }; });
   c.onError(function () { document.getElementById("msg").textContent = "The captcha failed to load."; });
-  c.onSuccess(function () { console.log("geetest:" + JSON.stringify(c.getValidate())); });
+  c.onSuccess(function () {
+    var v = JSON.stringify(c.getValidate());
+    document.getElementById("msg").textContent = "Verifying...";
+    console.log("geetest:" + v);
+    setTimeout(function () { location.href = "__DONE__" + encodeURIComponent(v); }, 300);
+  });
 });
 </script></body></html>"""
 # (label, icon, selected icon, one-line "what is this page for")
@@ -1464,14 +1472,23 @@ def main(page: ft.Page):
         import flet_webview  # NOTE: its console channel is Android/iOS/macOS only; Windows uses weblogin instead
         solved, done = {}, threading.Event()
 
-        def on_message(e):
-            if e.message.startswith("geetest:"):
-                solved.update(json.loads(e.message.removeprefix("geetest:")))
+        def got(result):
+            if not done.is_set():
+                solved.update(json.loads(result))
                 done.set()
 
-        html = CAPTCHA_HTML.replace("__GT__", need.gt).replace("__CHALLENGE__", need.challenge)
+        def on_message(e):
+            if e.message.startswith("geetest:"):
+                got(e.message.removeprefix("geetest:"))
+
+        def on_started(e):
+            if (e.data or "").startswith(CAPTCHA_DONE_URL):
+                got(urllib.parse.unquote(e.data.removeprefix(CAPTCHA_DONE_URL)))
+
+        html = (CAPTCHA_HTML.replace("__GT__", need.gt).replace("__CHALLENGE__", need.challenge)
+                .replace("__DONE__", CAPTCHA_DONE_URL))
         view = flet_webview.WebView(url="data:text/html;base64," + base64.b64encode(html.encode()).decode(),
-                                    on_console_message=on_message, expand=True)
+                                    on_console_message=on_message, on_page_started=on_started, expand=True)
         page.show_dialog(ft.AlertDialog(
             modal=True, title=ft.Text("Confirm it's you"), inset_padding=ft.Padding.all(12),
             content=ft.Container(view, width=(page.width or 360) - 72, height=420),
@@ -1486,10 +1503,15 @@ def main(page: ft.Page):
         account, password = (login_account.value or "").strip(), login_password.value or ""
         if not account or not password:
             return "Enter your HoYoLAB email and password."
-        try:
-            cookies = hoyolab.login(account, password)
-        except hoyolab.CaptchaRequired as need:
-            cookies = hoyolab.login(account, password, (need, solve_captcha(need)))
+        captcha = None
+        for attempt in range(3):  # HoYoLAB sometimes asks for a fresh captcha after a solved one
+            try:
+                cookies = hoyolab.login(account, password, captcha)
+                break
+            except hoyolab.CaptchaRequired as need:
+                if attempt == 2:
+                    return "HoYoLAB kept rejecting the captcha. Try again later, or use browser cookies."
+                captcha = (need, solve_captcha(need))
         cookies = {k: v for k, v in cookies.items() if k in vault.WANTED}
         if "ltoken_v2" not in cookies:
             return "HoYoLAB did not return a login. Try again, or use browser cookies."
