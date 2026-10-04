@@ -22,6 +22,7 @@ ROLES_URL = "https://api-account-os.hoyolab.com/account/binding/api/getUserGameR
 RECORD_URL = "https://bbs-api-os.hoyolab.com/game_record/genshin/api/index"
 CHARACTERS_URL = "https://bbs-api-os.hoyolab.com/game_record/genshin/api/character/list"
 CHARACTER_DETAIL_URL = "https://bbs-api-os.hoyolab.com/game_record/genshin/api/character/detail"
+DAILY_NOTE_URL = "https://bbs-api-os.hoyolab.com/game_record/genshin/api/dailyNote"
 # Battle Chronicle wants the "DS" header the hoyolab.com web page signs its requests with.
 DS_SALT = "6s25p5ox5y14umn1p61aqyyvbvvl3lrt"
 REDEEM_URL = "https://sg-hk4e-api.hoyoverse.com/common/apicdkey/api/webExchangeCdkeyHyl"
@@ -168,6 +169,12 @@ def _record(url, cookies, role, body=None) -> dict:
 def game_record(cookies, role) -> dict:
     """Battle Chronicle summary: stats, world exploration per region, teapot."""
     return _record(RECORD_URL, cookies, role)
+
+
+def daily_note(cookies, role) -> dict:
+    """Real-time notes: resin, commissions, realm currency, expeditions. Fails until the player turns
+    on "Real-time Notes" in the Battle Chronicle settings."""
+    return _record(DAILY_NOTE_URL, cookies, role)
 
 
 def characters(cookies, role) -> list[dict]:

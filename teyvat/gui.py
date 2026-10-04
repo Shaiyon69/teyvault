@@ -555,8 +555,13 @@ def main(page: ft.Page):
     # columns = tiles per row, so the calendar fills the card instead of leaving a gap on the right
     rewards_grid = ft.ResponsiveRow(columns=5 if phone else 7, spacing=6 if phone else 8, run_spacing=8)
     rewards_sub = muted("")
-    rewards_card = card(rewards_sub, rewards_grid, title="Daily rewards", icon=ft.Icons.CALENDAR_MONTH_ROUNDED,
-                        visible=False)
+    checkin_row = ft.Row([
+        ft.Container(checkin_icon, width=52, height=52, border_radius=26, bgcolor=ft.Colors.PRIMARY,
+                     alignment=ft.Alignment.CENTER),
+        ft.Column([checkin_title, checkin_detail], spacing=2, expand=True),
+    ], spacing=16)
+    rewards_card = card(checkin_row, auto_note, ft.Row([checkin_btn]), rewards_sub, rewards_grid,
+                        title="Daily rewards", icon=ft.Icons.CALENDAR_MONTH_ROUNDED, visible=False)
 
     def load_rewards():
         """Fill the reward calendar from HoYoLAB (runs on a worker thread)."""
@@ -599,15 +604,43 @@ def main(page: ft.Page):
         redeem_results.update()
 
     checkin_btn.on_click = guarded(do_checkin_and_refresh)
-    checkin_hero = hero(ft.Column([
-        ft.Row([
-            ft.Container(checkin_icon, width=52, height=52, border_radius=26, bgcolor=ft.Colors.PRIMARY,
-                         alignment=ft.Alignment.CENTER),
-            ft.Column([checkin_title, checkin_detail], spacing=2, expand=True),
-        ], spacing=16),
-        auto_note,
-        ft.Row([checkin_btn]),
-    ], spacing=12, horizontal_alignment=STRETCH))
+
+    resin_body = ft.Column(spacing=12, horizontal_alignment=STRETCH)
+    resin_card = card(resin_body, title="Resin", icon=ft.Icons.BOLT_ROUNDED, visible=False)
+
+    def load_resin():
+        """Worker thread, after the game accounts are known. Real-time notes of the active account."""
+        role = active_role()
+        resin_card.visible = role is not None
+        if not role:
+            page.update()
+            return
+        resin_body.controls = [skeleton(1, height=90)]
+        page.update()
+        try:
+            n = hoyolab.daily_note(vault.load(), role)
+        except Exception as ex:
+            resin_body.controls = [muted(f"Could not load resin: {ex}. Turn on Real-time Notes in "
+                                         "HoYoLAB's Battle Chronicle settings.")]
+        else:
+            cur, cap, left = n["current_resin"], n["max_resin"], int(n["resin_recovery_time"])
+            full = (datetime.datetime.now() + datetime.timedelta(seconds=left)).strftime("%a %H:%M")
+            resin_body.controls = [
+                ft.Column([
+                    ft.Row([muted("Original Resin", expand=True),
+                            ft.Text(str(cur), size=16, weight=ft.FontWeight.BOLD,
+                                    color=LOST if cur >= cap else ft.Colors.PRIMARY),
+                            muted(f"/ {cap}")], spacing=4),
+                    ft.Row([bar(cur / cap, LOST if cur >= cap else ft.Colors.PRIMARY)]),
+                    muted("Full, go spend it" if left <= 0 else f"Full at {full}", size=12),
+                ], spacing=6),
+                ft.Row([tile("Commissions", f"{n['finished_task_num']}/{n['total_task_num']}", expand=True),
+                        tile("Realm currency", f"{n['current_home_coin']:,}", f"of {n['max_home_coin']:,}",
+                             expand=True),
+                        tile("Expeditions", f"{n['current_expedition_num']}/{n['max_expedition_num']}",
+                             expand=True)], spacing=8),
+            ]
+        page.update()
     redeem_card = card(muted("Paste codes from livestreams or events. One per line."), codes,
                        ft.Row([ft.FilledTonalButton("Redeem", icon=ft.Icons.REDEEM_ROUNDED,
                                                     on_click=guarded(do_redeem))]),
@@ -618,7 +651,7 @@ def main(page: ft.Page):
     today_view = ft.Column([
         page_head(0),
         ft.ResponsiveRow([
-            ft.Column([checkin_hero, today_locked, redeem_card], spacing=16, horizontal_alignment=STRETCH,
+            ft.Column([resin_card, today_locked, redeem_card], spacing=16, horizontal_alignment=STRETCH,
                       col={"xs": 12, "lg": 5}),
             ft.Column([rewards_card], horizontal_alignment=STRETCH, col={"xs": 12, "lg": 7}),
         ], spacing=16, run_spacing=16, vertical_alignment=ft.CrossAxisAlignment.START),
@@ -1466,6 +1499,7 @@ def main(page: ft.Page):
         account_row.visible = len(roles) > 1  # a picker with one choice is just noise
         page.update()
         ensure_loaded(current["i"])
+        load_resin()
 
     def signed_in(cookies):
         vault.save(cookies)
@@ -1611,10 +1645,10 @@ def main(page: ft.Page):
         cookie_card.visible = not on
         status_dot.bgcolor = WON if on else LOST
         status_label.value = "Signed in" if on else "Signed out"
-        checkin_hero.visible = redeem_card.visible = on
+        redeem_card.visible = on
         today_locked.visible = not on
         if not on:
-            rewards_card.visible = False
+            rewards_card.visible = resin_card.visible = False
 
     account_view = ft.Column([
         page_head(ACCOUNT),
@@ -1652,6 +1686,7 @@ def main(page: ft.Page):
         refresh_stats()
         loaded.difference_update({EVENTS, WISHES, WORLD, CHARACTERS})
         ensure_loaded(current["i"])
+        page.run_thread(load_resin)
 
     account_pick = ft.Dropdown(label="Game account", width=min(320, (page.width or 360) - 72) if phone else 320, dense=True, filled=True, border_radius=14,
                                on_select=set_account)
