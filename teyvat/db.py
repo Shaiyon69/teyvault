@@ -1,3 +1,4 @@
+import datetime
 import os
 import sqlite3
 from pathlib import Path
@@ -15,6 +16,7 @@ CREATE TABLE IF NOT EXISTS wishes (
 CREATE INDEX IF NOT EXISTS wishes_uid_type ON wishes (uid, gacha_type);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS achievements_done (id INTEGER PRIMARY KEY);
+CREATE TABLE IF NOT EXISTS primogems (time TEXT NOT NULL, uid TEXT NOT NULL, count INTEGER NOT NULL);
 INSERT OR IGNORE INTO meta VALUES ('schema_version', '1');
 """
 
@@ -87,6 +89,20 @@ def set_done(conn, achievement_id, done: bool) -> None:
     with conn:
         conn.execute("INSERT OR IGNORE INTO achievements_done VALUES (?)" if done
                      else "DELETE FROM achievements_done WHERE id = ?", (achievement_id,))
+
+
+def log_primogems(conn, uid, count: int) -> None:
+    """Primogem count the user typed in (no API exposes it); the log is their ledger."""
+    with conn:
+        conn.execute("INSERT INTO primogems VALUES (?, ?, ?)",
+                     (datetime.datetime.now().isoformat(timespec="seconds"), uid, count))
+
+
+def primogem_log(conn, uid, limit=6) -> list[dict]:
+    """Newest first."""
+    rows = conn.execute("SELECT * FROM primogems WHERE uid = ? ORDER BY time DESC, rowid DESC LIMIT ?",
+                        (uid, limit))
+    return [dict(r) for r in rows]
 
 
 def delete_wishes(conn, uid) -> int:

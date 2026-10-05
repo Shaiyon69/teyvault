@@ -1,0 +1,1977 @@
+{
+ "_note": "Teyvault's own build picks for characters paimon.moe's guides don't cover (it stopped at 3.6). Same shape as wiki.guide_roles; best first. Write them yourself, never copy another site's guides.",
+ "characters": {
+  "Lyney": [
+   {
+    "role": "DPS",
+    "recommended": true,
+    "weapons": [
+     "The First Great Magic",
+     "Aqua Simulacra",
+     "Thundering Pulse",
+     "Polar Star",
+     "Song of Stillness",
+     "Prototype Crescent"
+    ],
+    "artifacts": [
+     "Marechaussee Hunter (4)",
+     "Shimenawa's Reminiscence / Gladiator's Finale (2+2)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: Pyro DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Elemental Mastery"
+    ],
+    "talents": [
+     "Normal Attack",
+     "Burst",
+     "Skill"
+    ],
+    "note": "Charged shots are his damage; play him with a Pyro team that keeps his HP moving."
+   }
+  ],
+  "Lynette": [
+   {
+    "role": "Support",
+    "recommended": true,
+    "weapons": [
+     "Freedom-Sworn",
+     "Favonius Sword",
+     "Sacrificial Sword",
+     "Mistsplitter Reforged"
+    ],
+    "artifacts": [
+     "Viridescent Venerer (4)"
+    ],
+    "main": [
+     "Sands: ATK% / Energy Recharge",
+     "Goblet: Anemo DMG / ATK%",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "Energy Recharge",
+     "CRIT Rate / DMG",
+     "ATK%"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ]
+   }
+  ],
+  "Freminet": [
+   {
+    "role": "DPS",
+    "recommended": true,
+    "weapons": [
+     "Wolf's Gravestone",
+     "Song of Broken Pines",
+     "Serpent Spine",
+     "Prototype Archaic"
+    ],
+    "artifacts": [
+     "Pale Flame (4)",
+     "Blizzard Strayer (4)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: Physical DMG / Cryo DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst",
+     "Normal Attack"
+    ],
+    "note": "Pale Flame in a Physical team, Blizzard Strayer next to a Hydro character."
+   }
+  ],
+  "Neuvillette": [
+   {
+    "role": "DPS",
+    "recommended": true,
+    "weapons": [
+     "Tome of the Eternal Flow",
+     "Sacrificial Jade",
+     "Prototype Amber",
+     "Ballad of the Boundless Blue"
+    ],
+    "artifacts": [
+     "Marechaussee Hunter (4)",
+     "Heart of Depth (4)"
+    ],
+    "main": [
+     "Sands: HP%",
+     "Goblet: Hydro DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "HP%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Normal Attack",
+     "Skill",
+     "Burst"
+    ],
+    "note": "His charged attack is the whole kit, and it scales on HP, not ATK."
+   }
+  ],
+  "Wriothesley": [
+   {
+    "role": "DPS",
+    "recommended": true,
+    "weapons": [
+     "Cashflow Supervision",
+     "Tulaytullah's Remembrance",
+     "The Widsith",
+     "Flowing Purity"
+    ],
+    "artifacts": [
+     "Marechaussee Hunter (4)",
+     "Blizzard Strayer (4)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: Cryo DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Normal Attack",
+     "Skill",
+     "Burst"
+    ]
+   }
+  ],
+  "Charlotte": [
+   {
+    "role": "Healer",
+    "recommended": true,
+    "weapons": [
+     "Prototype Amber",
+     "Favonius Codex",
+     "Sacrificial Fragments"
+    ],
+    "artifacts": [
+     "Song of Days Past (4)",
+     "Noblesse Oblige (4)",
+     "Ocean-Hued Clam (4)"
+    ],
+    "main": [
+     "Sands: ATK% / Energy Recharge",
+     "Goblet: ATK%",
+     "Circlet: Healing Bonus / ATK%"
+    ],
+    "subs": [
+     "Energy Recharge",
+     "ATK%"
+    ],
+    "talents": [
+     "Burst",
+     "Skill"
+    ]
+   }
+  ],
+  "Furina": [
+   {
+    "role": "Sub DPS / Buffer",
+    "recommended": true,
+    "weapons": [
+     "Splendor of Tranquil Waters",
+     "Festering Desire",
+     "Fleuve Cendre Ferryman",
+     "Key of Khaj-Nisut",
+     "Favonius Sword"
+    ],
+    "artifacts": [
+     "Golden Troupe (4)"
+    ],
+    "main": [
+     "Sands: HP% / Energy Recharge",
+     "Goblet: HP% / Hydro DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "HP%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Burst",
+     "Skill"
+    ],
+    "note": "Needs a healer to build her burst stacks. Before C2 aim for about 180-200% Energy Recharge."
+   }
+  ],
+  "Navia": [
+   {
+    "role": "DPS",
+    "recommended": true,
+    "weapons": [
+     "Verdict",
+     "Serpent Spine",
+     "Redhorn Stonethresher",
+     "Wolf's Gravestone"
+    ],
+    "artifacts": [
+     "Nighttime Whispers in the Echoing Woods (4)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: Geo DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst",
+     "Normal Attack"
+    ]
+   }
+  ],
+  "Chevreuse": [
+   {
+    "role": "Support",
+    "recommended": true,
+    "weapons": [
+     "Favonius Lance",
+     "Black Tassel",
+     "Primordial Jade Winged-Spear"
+    ],
+    "artifacts": [
+     "Noblesse Oblige (4)",
+     "Song of Days Past (4)"
+    ],
+    "main": [
+     "Sands: HP% / Energy Recharge",
+     "Goblet: HP%",
+     "Circlet: HP% / Healing Bonus"
+    ],
+    "subs": [
+     "HP%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": "Only for Overloaded teams: every teammate Pyro or Electro."
+   }
+  ],
+  "Gaming": [
+   {
+    "role": "DPS",
+    "recommended": true,
+    "weapons": [
+     "Serpent Spine",
+     "Fang of the Mountain King",
+     "Wolf's Gravestone",
+     "Mailed Flower",
+     "Tidal Shadow"
+    ],
+    "artifacts": [
+     "Marechaussee Hunter (4)",
+     "Crimson Witch of Flames (4)"
+    ],
+    "main": [
+     "Sands: ATK% / Elemental Mastery",
+     "Goblet: Pyro DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Elemental Mastery"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ]
+   }
+  ],
+  "Xianyun": [
+   {
+    "role": "Support",
+    "recommended": true,
+    "weapons": [
+     "Crane's Echoing Call",
+     "Favonius Codex",
+     "Oathsworn Eye",
+     "Prototype Amber"
+    ],
+    "artifacts": [
+     "Viridescent Venerer (4)",
+     "Song of Days Past (4)"
+    ],
+    "main": [
+     "Sands: ATK% / Energy Recharge",
+     "Goblet: ATK%",
+     "Circlet: ATK%"
+    ],
+    "subs": [
+     "ATK%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Burst",
+     "Skill"
+    ],
+    "note": "Her plunging attack buff scales on her ATK."
+   }
+  ],
+  "Chiori": [
+   {
+    "role": "Sub DPS",
+    "recommended": true,
+    "weapons": [
+     "Uraku Misugiri",
+     "Cinnabar Spindle",
+     "Harbinger of Dawn",
+     "Flute of Ezpitzal"
+    ],
+    "artifacts": [
+     "Golden Troupe (4)"
+    ],
+    "main": [
+     "Sands: DEF%",
+     "Goblet: Geo DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "DEF%",
+     "ATK%"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ]
+   }
+  ],
+  "Arlecchino": [
+   {
+    "role": "DPS",
+    "recommended": true,
+    "weapons": [
+     "Crimson Moon’s Semblance",
+     "Staff of Homa",
+     "Deathmatch",
+     "White Tassel",
+     "Ballad of the Fjords"
+    ],
+    "artifacts": [
+     "Fragment of Harmonic Whimsy (4)",
+     "Gladiator's Finale (4)"
+    ],
+    "main": [
+     "Sands: ATK% / Elemental Mastery",
+     "Goblet: Pyro DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Elemental Mastery"
+    ],
+    "talents": [
+     "Normal Attack",
+     "Burst",
+     "Skill"
+    ],
+    "note": "She can't be healed while her Bond of Life is up, so she needs no healer."
+   }
+  ],
+  "Sethos": [
+   {
+    "role": "DPS",
+    "recommended": true,
+    "weapons": [
+     "Hunter's Path",
+     "Thundering Pulse",
+     "Ibis Piercer",
+     "Song of Stillness"
+    ],
+    "artifacts": [
+     "Wanderer's Troupe (4)",
+     "Gilded Dreams (4)"
+    ],
+    "main": [
+     "Sands: Elemental Mastery",
+     "Goblet: Electro DMG / Elemental Mastery",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "Elemental Mastery",
+     "CRIT Rate / DMG"
+    ],
+    "talents": [
+     "Normal Attack",
+     "Burst"
+    ]
+   }
+  ],
+  "Clorinde": [
+   {
+    "role": "DPS",
+    "recommended": true,
+    "weapons": [
+     "Absolution",
+     "Mistsplitter Reforged",
+     "Finale of the Deep",
+     "The Black Sword",
+     "Wolf-Fang"
+    ],
+    "artifacts": [
+     "Fragment of Harmonic Whimsy (4)",
+     "Thundering Fury (4)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: Electro DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Elemental Mastery"
+    ],
+    "talents": [
+     "Skill",
+     "Burst",
+     "Normal Attack"
+    ]
+   }
+  ],
+  "Sigewinne": [
+   {
+    "role": "Healer / Sub DPS",
+    "recommended": true,
+    "weapons": [
+     "Silvershower Heartstrings",
+     "Favonius Warbow",
+     "Elegy for the End",
+     "Recurve Bow"
+    ],
+    "artifacts": [
+     "Song of Days Past (4)",
+     "Ocean-Hued Clam (4)"
+    ],
+    "main": [
+     "Sands: HP% / Energy Recharge",
+     "Goblet: HP%",
+     "Circlet: HP% / Healing Bonus"
+    ],
+    "subs": [
+     "HP%",
+     "Energy Recharge",
+     "CRIT Rate / DMG"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ]
+   }
+  ],
+  "Emilie": [
+   {
+    "role": "Sub DPS",
+    "recommended": true,
+    "weapons": [
+     "Lumidouce Elegy",
+     "Staff of Homa",
+     "Missive Windspear",
+     "Ballad of the Fjords",
+     "Prototype Starglitter"
+    ],
+    "artifacts": [
+     "Unfinished Reverie (4)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: Dendro DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": "Best in Burning teams."
+   }
+  ],
+  "Kachina": [
+   {
+    "role": "Sub DPS",
+    "recommended": true,
+    "weapons": [
+     "Footprint of the Rainbow",
+     "Favonius Lance",
+     "Prototype Starglitter"
+    ],
+    "artifacts": [
+     "Scroll of the Hero of Cinder City (4)"
+    ],
+    "main": [
+     "Sands: DEF% / Energy Recharge",
+     "Goblet: Geo DMG / DEF%",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "DEF%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ]
+   }
+  ],
+  "Kinich": [
+   {
+    "role": "DPS",
+    "recommended": true,
+    "weapons": [
+     "Fang of the Mountain King",
+     "Earth Shaker",
+     "Mailed Flower",
+     "Serpent Spine"
+    ],
+    "artifacts": [
+     "Obsidian Codex (4)"
+    ],
+    "main": [
+     "Sands: ATK% / Elemental Mastery",
+     "Goblet: Dendro DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Elemental Mastery"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ]
+   }
+  ],
+  "Mualani": [
+   {
+    "role": "DPS",
+    "recommended": true,
+    "weapons": [
+     "Surf's Up",
+     "Ring of Yaxche",
+     "Sacrificial Jade",
+     "Prototype Amber"
+    ],
+    "artifacts": [
+     "Obsidian Codex (4)"
+    ],
+    "main": [
+     "Sands: HP%",
+     "Goblet: Hydro DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "HP%",
+     "Elemental Mastery"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": "Pair her with a Pyro character for Vaporize."
+   }
+  ],
+  "Xilonen": [
+   {
+    "role": "Support",
+    "recommended": true,
+    "weapons": [
+     "Peak Patrol Song",
+     "Favonius Sword",
+     "Flute of Ezpitzal",
+     "Sacrificial Sword"
+    ],
+    "artifacts": [
+     "Scroll of the Hero of Cinder City (4)"
+    ],
+    "main": [
+     "Sands: DEF% / Energy Recharge",
+     "Goblet: DEF%",
+     "Circlet: DEF% / Healing Bonus"
+    ],
+    "subs": [
+     "DEF%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": "Her RES shred follows her teammates' elements, so bring the ones your damage dealer needs."
+   }
+  ],
+  "Chasca": [
+   {
+    "role": "DPS",
+    "recommended": true,
+    "weapons": [
+     "Astral Vulture's Crimson Plumage",
+     "The First Great Magic",
+     "Aqua Simulacra",
+     "Chain Breaker"
+    ],
+    "artifacts": [
+     "Obsidian Codex (4)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: Anemo DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": "Wants Pyro, Hydro, Electro or Cryo teammates to convert her shots."
+   }
+  ],
+  "Ororon": [
+   {
+    "role": "Sub DPS",
+    "recommended": true,
+    "weapons": [
+     "Favonius Warbow",
+     "Chain Breaker",
+     "Elegy for the End",
+     "Sacrificial Bow"
+    ],
+    "artifacts": [
+     "Scroll of the Hero of Cinder City (4)"
+    ],
+    "main": [
+     "Sands: ATK% / Energy Recharge",
+     "Goblet: Electro DMG / ATK%",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "Energy Recharge",
+     "CRIT Rate / DMG",
+     "ATK%"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ]
+   }
+  ],
+  "Citlali": [
+   {
+    "role": "Support",
+    "recommended": true,
+    "weapons": [
+     "Starcaller's Watch",
+     "A Thousand Floating Dreams",
+     "Favonius Codex",
+     "Prototype Amber"
+    ],
+    "artifacts": [
+     "Scroll of the Hero of Cinder City (4)",
+     "Instructor (4)"
+    ],
+    "main": [
+     "Sands: Elemental Mastery / Energy Recharge",
+     "Goblet: Elemental Mastery",
+     "Circlet: Elemental Mastery"
+    ],
+    "subs": [
+     "Elemental Mastery",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": "Shreds Pyro and Hydro RES; Elemental Mastery strengthens her shield."
+   }
+  ],
+  "Mavuika": [
+   {
+    "role": "DPS",
+    "recommended": true,
+    "weapons": [
+     "A Thousand Blazing Suns",
+     "Verdict",
+     "Wolf's Gravestone",
+     "Serpent Spine"
+    ],
+    "artifacts": [
+     "Obsidian Codex (4)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: Pyro DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Elemental Mastery"
+    ],
+    "talents": [
+     "Burst",
+     "Skill",
+     "Normal Attack"
+    ],
+    "note": "Her burst charges from the team's Nightsoul points, not Energy, so Energy Recharge barely matters."
+   }
+  ],
+  "Lan Yan": [
+   {
+    "role": "Support",
+    "recommended": true,
+    "weapons": [
+     "Favonius Codex",
+     "Sacrificial Fragments",
+     "Prototype Amber"
+    ],
+    "artifacts": [
+     "Viridescent Venerer (4)"
+    ],
+    "main": [
+     "Sands: ATK% / Energy Recharge",
+     "Goblet: ATK%",
+     "Circlet: ATK%"
+    ],
+    "subs": [
+     "ATK%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": "Her shield scales on ATK."
+   }
+  ],
+  "Yumemizuki Mizuki": [
+   {
+    "role": "Swirl DPS",
+    "recommended": true,
+    "weapons": [
+     "Sunny Morning Sleep-In",
+     "A Thousand Floating Dreams",
+     "Sacrificial Fragments"
+    ],
+    "artifacts": [
+     "Viridescent Venerer (4)"
+    ],
+    "main": [
+     "Sands: Elemental Mastery",
+     "Goblet: Elemental Mastery",
+     "Circlet: Elemental Mastery"
+    ],
+    "subs": [
+     "Elemental Mastery",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ]
+   }
+  ],
+  "Varesa": [
+   {
+    "role": "DPS",
+    "recommended": true,
+    "weapons": [
+     "Vivid Notions",
+     "Kagura's Verity",
+     "Lost Prayer to the Sacred Winds",
+     "Tulaytullah's Remembrance"
+    ],
+    "artifacts": [
+     "Obsidian Codex (4)",
+     "Long Night's Oath (4)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: Electro DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Normal Attack",
+     "Burst",
+     "Skill"
+    ],
+    "note": "Her damage is in the plunging attacks after her skill."
+   }
+  ],
+  "Iansan": [
+   {
+    "role": "Support",
+    "recommended": true,
+    "weapons": [
+     "Favonius Lance",
+     "Missive Windspear",
+     "Prototype Starglitter"
+    ],
+    "artifacts": [
+     "Scroll of the Hero of Cinder City (4)",
+     "Instructor (4)"
+    ],
+    "main": [
+     "Sands: ATK% / Energy Recharge",
+     "Goblet: ATK%",
+     "Circlet: ATK%"
+    ],
+    "subs": [
+     "ATK%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Burst",
+     "Skill"
+    ],
+    "note": "Her ATK buff scales on her own ATK."
+   }
+  ],
+  "Escoffier": [
+   {
+    "role": "Sub DPS / Healer",
+    "recommended": true,
+    "weapons": [
+     "Symphonist of Scents",
+     "Favonius Lance",
+     "Deathmatch"
+    ],
+    "artifacts": [
+     "Golden Troupe (4)"
+    ],
+    "main": [
+     "Sands: ATK% / Energy Recharge",
+     "Goblet: Cryo DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": "Shreds Hydro and Cryo RES when the team is mostly Hydro and Cryo."
+   }
+  ],
+  "Skirk": [
+   {
+    "role": "DPS",
+    "recommended": true,
+    "weapons": [
+     "Azurelight",
+     "Mistsplitter Reforged",
+     "Finale of the Deep",
+     "Calamity of Eshu"
+    ],
+    "artifacts": [
+     "Finale of the Deep Galleries (4)",
+     "Blizzard Strayer (4)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: Cryo DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%"
+    ],
+    "talents": [
+     "Normal Attack",
+     "Skill",
+     "Burst"
+    ],
+    "note": "Play her with Hydro and Cryo teammates only."
+   }
+  ],
+  "Lauma": [
+   {
+    "role": "Support",
+    "recommended": true,
+    "weapons": [
+     "Nightweaver's Looking Glass",
+     "A Thousand Floating Dreams",
+     "Sacrificial Fragments"
+    ],
+    "artifacts": [
+     "Silken Moon's Serenade (4)",
+     "Deepwood Memories (4)"
+    ],
+    "main": [
+     "Sands: Elemental Mastery",
+     "Goblet: Elemental Mastery",
+     "Circlet: Elemental Mastery"
+    ],
+    "subs": [
+     "Elemental Mastery",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ]
+   }
+  ],
+  "Kirara": [
+   {
+    "role": "Shielder",
+    "recommended": true,
+    "weapons": [
+     "Favonius Sword",
+     "Key of Khaj-Nisut",
+     "Sacrificial Sword"
+    ],
+    "artifacts": [
+     "Tenacity of the Millelith (4)",
+     "Deepwood Memories (4)"
+    ],
+    "main": [
+     "Sands: HP% / Energy Recharge",
+     "Goblet: HP%",
+     "Circlet: HP%"
+    ],
+    "subs": [
+     "HP%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ]
+   }
+  ],
+  "Columbina": [
+   {
+    "role": "Lunar Support",
+    "recommended": true,
+    "weapons": [
+     "Nocturne's Curtain Call",
+     "Tome of the Eternal Flow",
+     "Sacrificial Jade",
+     "Favonius Codex",
+     "Prototype Amber"
+    ],
+    "artifacts": [
+     "Aubade of Morningstar and Moon (4)",
+     "Silken Moon's Serenade (4)"
+    ],
+    "main": [
+     "Sands: HP%",
+     "Goblet: HP%",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "HP%",
+     "Energy Recharge",
+     "Elemental Mastery"
+    ],
+    "talents": [
+     "Burst",
+     "Skill",
+     "Normal Attack"
+    ],
+    "note": "Scales on HP; roughly 33-35k HP and 150% Energy Recharge is a good target."
+   }
+  ],
+  "Flins": [
+   {
+    "role": "Lunar-Charged DPS",
+    "recommended": true,
+    "weapons": [
+     "Bloodsoaked Ruins",
+     "Staff of the Scarlet Sands",
+     "Deathmatch",
+     "Prospector's Shovel"
+    ],
+    "artifacts": [
+     "Night of the Sky's Unveiling (4)",
+     "Gilded Dreams (4)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: ATK%",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "Energy Recharge",
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Elemental Mastery"
+    ],
+    "talents": [
+     "Skill",
+     "Burst",
+     "Normal Attack"
+    ],
+    "note": "ATK% beats Elemental Mastery: his kit and teammates already give plenty of EM. Get enough Energy Recharge (about 120-140%) first."
+   }
+  ],
+  "Ineffa": [
+   {
+    "role": "Lunar-Charged Support",
+    "recommended": true,
+    "weapons": [
+     "Fractured Halo",
+     "Staff of the Scarlet Sands",
+     "Prospector's Shovel",
+     "Favonius Lance"
+    ],
+    "artifacts": [
+     "Aubade of Morningstar and Moon (4)",
+     "Silken Moon's Serenade (4)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: ATK%",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Energy Recharge",
+     "Elemental Mastery"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": "Silken Moon's Serenade when the team needs her buffs more than her own damage."
+   }
+  ],
+  "Nefer": [
+   {
+    "role": "Lunar-Bloom DPS",
+    "recommended": true,
+    "weapons": [
+     "Reliquary of Truth",
+     "Nightweaver's Looking Glass",
+     "Tome of the Eternal Flow",
+     "Dawning Frost",
+     "Blackmarrow Lantern"
+    ],
+    "artifacts": [
+     "Night of the Sky's Unveiling (4)",
+     "Gilded Dreams (4)",
+     "Deepwood Memories (4)"
+    ],
+    "main": [
+     "Sands: Elemental Mastery",
+     "Goblet: Elemental Mastery",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "Elemental Mastery",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Normal Attack",
+     "Skill",
+     "Burst"
+    ],
+    "note": ""
+   }
+  ],
+  "Aino": [
+   {
+    "role": "Support",
+    "recommended": true,
+    "weapons": [
+     "Flame-Forged Insight",
+     "Favonius Greatsword",
+     "Master Key",
+     "Makhaira Aquamarine"
+    ],
+    "artifacts": [
+     "Silken Moon's Serenade (4)",
+     "Noblesse Oblige (4)"
+    ],
+    "main": [
+     "Sands: Energy Recharge",
+     "Goblet: Elemental Mastery",
+     "Circlet: Elemental Mastery"
+    ],
+    "subs": [
+     "Energy Recharge",
+     "Elemental Mastery"
+    ],
+    "talents": [
+     "Burst",
+     "Skill"
+    ],
+    "note": "Off-field Hydro support, not a damage dealer; she wants about 190-250% Energy Recharge at C0."
+   }
+  ],
+  "Durin": [
+   {
+    "role": "DPS / Support",
+    "recommended": true,
+    "weapons": [
+     "Athame Artis",
+     "Freedom-Sworn",
+     "Wolf-Fang",
+     "Lion's Roar"
+    ],
+    "artifacts": [
+     "A Day Carved From Rising Winds (4)",
+     "Noblesse Oblige (4)",
+     "Emblem of Severed Fate (4)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: Pyro DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Burst",
+     "Skill"
+    ],
+    "note": "Noblesse Oblige if he is there to buff the team rather than deal damage."
+   }
+  ],
+  "Jahoda": [
+   {
+    "role": "Support / Healer",
+    "recommended": true,
+    "weapons": [
+     "Elegy for the End",
+     "Favonius Warbow",
+     "Rainbow Serpent's Rain Bow"
+    ],
+    "artifacts": [
+     "Viridescent Venerer (4)",
+     "Silken Moon's Serenade (4)"
+    ],
+    "main": [
+     "Sands: Energy Recharge",
+     "Goblet: ATK%",
+     "Circlet: ATK% / Healing Bonus"
+    ],
+    "subs": [
+     "Energy Recharge",
+     "ATK%"
+    ],
+    "talents": [
+     "Burst",
+     "Skill"
+    ],
+    "note": "Her healing and buffs both come from her burst, so she needs about 180-230% Energy Recharge. Silken Moon's Serenade in Lunar teams."
+   }
+  ],
+  "Dahlia": [
+   {
+    "role": "Shield Support",
+    "recommended": true,
+    "weapons": [
+     "Favonius Sword",
+     "Key of Khaj-Nisut",
+     "Sacrificial Sword",
+     "Fleuve Cendre Ferryman"
+    ],
+    "artifacts": [
+     "Noblesse Oblige (4)",
+     "Tenacity of the Millelith / Vourukasha's Glow (2+2)"
+    ],
+    "main": [
+     "Sands: HP% / Energy Recharge",
+     "Goblet: HP%",
+     "Circlet: HP%"
+    ],
+    "subs": [
+     "Energy Recharge",
+     "HP%"
+    ],
+    "talents": [
+     "Burst",
+     "Skill"
+    ],
+    "note": "His shield comes from his burst and scales on HP."
+   }
+  ],
+  "Ifa": [
+   {
+    "role": "Swirl Healer",
+    "recommended": true,
+    "weapons": [
+     "Sunny Morning Sleep-In",
+     "Starcaller's Watch",
+     "A Thousand Floating Dreams",
+     "Sacrificial Fragments",
+     "Mappa Mare"
+    ],
+    "artifacts": [
+     "Viridescent Venerer (4)"
+    ],
+    "main": [
+     "Sands: Elemental Mastery",
+     "Goblet: Elemental Mastery",
+     "Circlet: Elemental Mastery"
+    ],
+    "subs": [
+     "Elemental Mastery",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": "Elemental Mastery drives both his healing and his reaction buffs."
+   }
+  ],
+  "Varka": [
+   {
+    "role": "DPS",
+    "recommended": true,
+    "weapons": [
+     "Gest of the Mighty Wolf",
+     "A Thousand Blazing Suns",
+     "Serpent Spine",
+     "Wolf's Gravestone"
+    ],
+    "artifacts": [
+     "A Day Carved From Rising Winds (4)",
+     "Desert Pavilion Chronicle (4)",
+     "Shimenawa's Reminiscence (4)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: ATK%",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Energy Recharge",
+     "Elemental Mastery"
+    ],
+    "talents": [
+     "Normal Attack",
+     "Skill",
+     "Burst"
+    ],
+    "note": "Build ATK up to about 2500 to cap his passive, then CRIT."
+   }
+  ],
+  "Zibai": [
+   {
+    "role": "Lunar-Crystallize DPS",
+    "recommended": true,
+    "weapons": [
+     "Lightbearing Moonshard",
+     "Uraku Misugiri",
+     "Harbinger of Dawn",
+     "Flute of Ezpitzal"
+    ],
+    "artifacts": [
+     "Night of the Sky's Unveiling (4)"
+    ],
+    "main": [
+     "Sands: DEF%",
+     "Goblet: DEF%",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "DEF%",
+     "Elemental Mastery"
+    ],
+    "talents": [
+     "Skill",
+     "Normal Attack",
+     "Burst"
+    ],
+    "note": "Scales on DEF, not ATK: skip ATK% and Geo DMG."
+   }
+  ],
+  "Illuga": [
+   {
+    "role": "Lunar-Crystallize Support",
+    "recommended": true,
+    "weapons": [
+     "Favonius Lance",
+     "Dragon's Bane",
+     "\"The Catch\""
+    ],
+    "artifacts": [
+     "Silken Moon's Serenade (4)"
+    ],
+    "main": [
+     "Sands: Energy Recharge / Elemental Mastery",
+     "Goblet: Elemental Mastery",
+     "Circlet: Elemental Mastery / CRIT Rate"
+    ],
+    "subs": [
+     "Energy Recharge",
+     "Elemental Mastery",
+     "CRIT Rate"
+    ],
+    "talents": [
+     "Burst",
+     "Skill"
+    ],
+    "note": "Aim for about 800 Elemental Mastery and 180% Energy Recharge; CRIT Rate only for Favonius Lance procs."
+   }
+  ],
+  "Linnea": [
+   {
+    "role": "Sub DPS / Buffer",
+    "recommended": true,
+    "weapons": [
+     "Golden Frostbound Oath",
+     "Aqua Simulacra",
+     "Polar Star",
+     "Favonius Warbow",
+     "Slingshot"
+    ],
+    "artifacts": [
+     "Aubade of Morningstar and Moon (4)",
+     "Husk of Opulent Dreams (4)",
+     "Silken Moon's Serenade (4)"
+    ],
+    "main": [
+     "Sands: DEF%",
+     "Goblet: DEF%",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "DEF%",
+     "CRIT Rate / DMG",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst",
+     "Normal Attack"
+    ],
+    "note": "Her Lunar-Crystallize damage scales on DEF, so a DEF% Goblet beats Geo DMG."
+   }
+  ],
+  "Nicole": [
+   {
+    "role": "Support",
+    "recommended": true,
+    "weapons": [
+     "Angelos' Heptades",
+     "Skyward Atlas",
+     "Thrilling Tales of Dragon Slayers"
+    ],
+    "artifacts": [
+     "Celestial Gift (4)",
+     "Noblesse Oblige (4)"
+    ],
+    "main": [
+     "Sands: ATK% / Energy Recharge",
+     "Goblet: ATK%",
+     "Circlet: ATK%"
+    ],
+    "subs": [
+     "ATK%",
+     "Energy Recharge",
+     "CRIT Rate / DMG"
+    ],
+    "talents": [
+     "Skill",
+     "Burst",
+     "Normal Attack"
+    ],
+    "note": ""
+   }
+  ],
+  "Lohen": [
+   {
+    "role": "DPS",
+    "recommended": true,
+    "weapons": [
+     "Disaster and Remorse",
+     "Staff of Homa",
+     "Primordial Jade Winged-Spear",
+     "White Tassel"
+    ],
+    "artifacts": [
+     "A Day Carved From Rising Winds (4)",
+     "Shimenawa's Reminiscence (4)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: Cryo DMG / ATK%",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Normal Attack",
+     "Skill",
+     "Burst"
+    ],
+    "note": ""
+   }
+  ],
+  "Prune": [
+   {
+    "role": "Support",
+    "recommended": true,
+    "weapons": [
+     "Angelos' Heptades",
+     "Skyward Atlas",
+     "Oathsworn Eye",
+     "Favonius Codex",
+     "Thrilling Tales of Dragon Slayers"
+    ],
+    "artifacts": [
+     "Viridescent Venerer (4)",
+     "Noblesse Oblige (4)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: Anemo DMG / ATK%",
+     "Circlet: ATK%"
+    ],
+    "subs": [
+     "ATK%",
+     "Energy Recharge",
+     "CRIT Rate"
+    ],
+    "talents": [
+     "Burst",
+     "Skill"
+    ],
+    "note": "Her DMG buff scales on her ATK."
+   }
+  ],
+  "Sandrone": [
+   {
+    "role": "DPS",
+    "recommended": true,
+    "weapons": [
+     "A Teaspoon of Transcendence",
+     "A Thousand Blazing Suns",
+     "Mailed Flower",
+     "Tidal Shadow"
+    ],
+    "artifacts": [
+     "Disenchantment in Deep Shadow (4)"
+    ],
+    "main": [
+     "Sands: ATK% / Elemental Mastery",
+     "Goblet: ATK%",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Elemental Mastery",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Normal Attack",
+     "Skill",
+     "Burst"
+    ],
+    "note": "Most of her damage is Charged Attacks."
+   }
+  ],
+  "Odette": [
+   {
+    "role": "Sub DPS",
+    "recommended": true,
+    "weapons": [
+     "Whitelake Frostfeather",
+     "Azurelight",
+     "Finale of the Deep",
+     "Emberwell"
+    ],
+    "artifacts": [
+     "Heart of the Furnace (4)",
+     "Disenchantment in Deep Shadow (4)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: ATK%",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Elemental Mastery",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst",
+     "Normal Attack"
+    ],
+    "note": "Aim for about 3000 ATK and 130% Energy Recharge."
+   }
+  ],
+  "Alyosha": [
+   {
+    "role": "Support",
+    "recommended": true,
+    "weapons": [
+     "Engulfing Lightning",
+     "Tamayuratei no Ohanashi",
+     "Favonius Lance"
+    ],
+    "artifacts": [
+     "Heart of the Furnace (4)",
+     "Noblesse Oblige (4)"
+    ],
+    "main": [
+     "Sands: Energy Recharge",
+     "Goblet: ATK%",
+     "Circlet: ATK% / Healing Bonus"
+    ],
+    "subs": [
+     "Energy Recharge",
+     "ATK%",
+     "CRIT Rate"
+    ],
+    "talents": [
+     "Burst",
+     "Skill"
+    ],
+    "note": "Energy Recharge first (about 180-200%), then ATK. Heart of the Furnace doesn't stack, so use Noblesse if Odette wears it."
+   }
+  ],
+  "Vesna": [
+   {
+    "role": "DPS",
+    "recommended": true,
+    "weapons": [
+     "Beyond the Chrysalis",
+     "Whitelake Frostfeather",
+     "Emberwell"
+    ],
+    "artifacts": [
+     "Scarlet Proof (4)",
+     "Viridescent Venerer (4)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: ATK%",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Elemental Mastery",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst",
+     "Normal Attack"
+    ],
+    "note": ""
+   }
+  ],
+  "Vodyanitsa": [
+   {
+    "role": "Healer / Buffer",
+    "recommended": true,
+    "weapons": [
+     "Hymn of the Maelstrom",
+     "Everlasting Moonglow",
+     "Prototype Amber",
+     "Thrilling Tales of Dragon Slayers"
+    ],
+    "artifacts": [
+     "Tenacity of the Millelith (4)",
+     "Song of Days Past (4)"
+    ],
+    "main": [
+     "Sands: HP%",
+     "Goblet: HP%",
+     "Circlet: HP% / Healing Bonus"
+    ],
+    "subs": [
+     "HP%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": "Stack HP: her passive needs about 60k."
+   }
+  ],
+  "Traveler (Hydro)": [
+   {
+    "role": "Sub DPS",
+    "recommended": true,
+    "weapons": [
+     "Sacrificial Sword",
+     "Xiphos' Moonlight",
+     "Primordial Jade Cutter"
+    ],
+    "artifacts": [
+     "Golden Troupe (4)",
+     "Heart of Depth / Gladiator's Finale (2+2)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: Hydro DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": ""
+   }
+  ],
+  "Traveler (Pyro)": [
+   {
+    "role": "Support",
+    "recommended": true,
+    "weapons": [
+     "Favonius Sword",
+     "Freedom-Sworn",
+     "Mistsplitter Reforged"
+    ],
+    "artifacts": [
+     "Scroll of the Hero of Cinder City (4)",
+     "Obsidian Codex (4)"
+    ],
+    "main": [
+     "Sands: ATK% / Energy Recharge",
+     "Goblet: Pyro DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": "Obsidian Codex for a C6 damage build."
+   }
+  ],
+  "Manekin": [
+   {
+    "role": "Anemo (Swirl)",
+    "recommended": true,
+    "weapons": [
+     "Freedom-Sworn",
+     "Mistsplitter Reforged",
+     "Iron Sting"
+    ],
+    "artifacts": [
+     "Viridescent Venerer (4)"
+    ],
+    "main": [
+     "Sands: Elemental Mastery / ATK%",
+     "Goblet: Anemo DMG / Elemental Mastery",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "Elemental Mastery",
+     "Energy Recharge",
+     "CRIT Rate / DMG"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": ""
+   },
+   {
+    "role": "Electro (Hyperbloom)",
+    "recommended": false,
+    "weapons": [
+     "Freedom-Sworn",
+     "Xiphos' Moonlight",
+     "Iron Sting",
+     "Sapwood Blade"
+    ],
+    "artifacts": [
+     "Flower of Paradise Lost (4)",
+     "Gilded Dreams (4)"
+    ],
+    "main": [
+     "Sands: Elemental Mastery",
+     "Goblet: Elemental Mastery",
+     "Circlet: Elemental Mastery"
+    ],
+    "subs": [
+     "Elemental Mastery",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": ""
+   },
+   {
+    "role": "Dendro",
+    "recommended": false,
+    "weapons": [
+     "Light of Foliar Incision",
+     "Freedom-Sworn",
+     "Xiphos' Moonlight",
+     "Sapwood Blade"
+    ],
+    "artifacts": [
+     "Deepwood Memories (4)",
+     "Gilded Dreams (4)"
+    ],
+    "main": [
+     "Sands: Elemental Mastery / ATK%",
+     "Goblet: Dendro DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "Elemental Mastery",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": ""
+   },
+   {
+    "role": "Hydro",
+    "recommended": false,
+    "weapons": [
+     "Primordial Jade Cutter",
+     "Sacrificial Sword",
+     "Iron Sting"
+    ],
+    "artifacts": [
+     "Heart of Depth (4)",
+     "Emblem of Severed Fate (4)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: Hydro DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": ""
+   }
+  ],
+  "Manekina": [
+   {
+    "role": "Anemo (Swirl)",
+    "recommended": true,
+    "weapons": [
+     "Freedom-Sworn",
+     "Mistsplitter Reforged",
+     "Iron Sting"
+    ],
+    "artifacts": [
+     "Viridescent Venerer (4)"
+    ],
+    "main": [
+     "Sands: Elemental Mastery / ATK%",
+     "Goblet: Anemo DMG / Elemental Mastery",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "Elemental Mastery",
+     "Energy Recharge",
+     "CRIT Rate / DMG"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": ""
+   },
+   {
+    "role": "Electro (Hyperbloom)",
+    "recommended": false,
+    "weapons": [
+     "Freedom-Sworn",
+     "Xiphos' Moonlight",
+     "Iron Sting",
+     "Sapwood Blade"
+    ],
+    "artifacts": [
+     "Flower of Paradise Lost (4)",
+     "Gilded Dreams (4)"
+    ],
+    "main": [
+     "Sands: Elemental Mastery",
+     "Goblet: Elemental Mastery",
+     "Circlet: Elemental Mastery"
+    ],
+    "subs": [
+     "Elemental Mastery",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": ""
+   },
+   {
+    "role": "Dendro",
+    "recommended": false,
+    "weapons": [
+     "Light of Foliar Incision",
+     "Freedom-Sworn",
+     "Xiphos' Moonlight",
+     "Sapwood Blade"
+    ],
+    "artifacts": [
+     "Deepwood Memories (4)",
+     "Gilded Dreams (4)"
+    ],
+    "main": [
+     "Sands: Elemental Mastery / ATK%",
+     "Goblet: Dendro DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "Elemental Mastery",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": ""
+   },
+   {
+    "role": "Hydro",
+    "recommended": false,
+    "weapons": [
+     "Primordial Jade Cutter",
+     "Sacrificial Sword",
+     "Iron Sting"
+    ],
+    "artifacts": [
+     "Heart of Depth (4)",
+     "Emblem of Severed Fate (4)"
+    ],
+    "main": [
+     "Sands: ATK%",
+     "Goblet: Hydro DMG",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Skill",
+     "Burst"
+    ],
+    "note": ""
+   }
+  ],
+  "Traveler (Cryo)": [
+   {
+    "role": "Sub DPS",
+    "recommended": true,
+    "weapons": [
+     "Exaiphanes Blade",
+     "Mistsplitter Reforged",
+     "Favonius Sword"
+    ],
+    "artifacts": [
+     "Disenchantment in Deep Shadow (4)"
+    ],
+    "main": [
+     "Sands: ATK% / Elemental Mastery",
+     "Goblet: ATK% / Elemental Mastery",
+     "Circlet: CRIT Rate / DMG"
+    ],
+    "subs": [
+     "CRIT Rate / DMG",
+     "ATK%",
+     "Energy Recharge"
+    ],
+    "talents": [
+     "Burst",
+     "Normal Attack",
+     "Skill"
+    ],
+    "note": "Exaiphanes Blade is free and made for them. Most of the damage is the burst."
+   }
+  ]
+ }
+}

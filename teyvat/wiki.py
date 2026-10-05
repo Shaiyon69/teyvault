@@ -23,6 +23,17 @@ ENTRY_API_URL = "https://sg-wiki-api-static.hoyolab.com/hoyowiki/genshin/wapi/en
 ACHIEVEMENTS_URL = "https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/src/data/achievement/en.json"
 TIMELINE_URL = "https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/src/data/timeline.js"
 BANNERS_URL = "https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/src/data/banners.js"
+PAIMON_DATA = "https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/src/data/"
+GUIDES_URL = PAIMON_DATA + "build.js"
+ARTIFACT_NAMES_URL = PAIMON_DATA + "artifacts/en.json"
+VIDEO_URL = "https://www.youtube.com/results?search_query={}"
+# Hand-written, current guides. Linked, never fetched: its terms forbid copying the content.
+GENSHINTRACK_URL = "https://genshintrack.com/characters/{}"
+DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+BANNER_IMAGE_URL = "https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/banners/{}"
+# The repo's own data files, served by jsDelivr from main: pushing an edit updates every install within a day.
+DATA_URL = "https://cdn.jsdelivr.net/gh/Shaiyon69/teyvault@main/teyvat/data/{}"
+DATA_FILES = {"standard_5stars.json": "characters", "prydwen_tiers.json": "tiers", "builds.json": "characters"}  # file -> key it must have
 EVENT_IMAGE_URL = "https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/events/{}"
 # Each server's clock (fixed offsets, no daylight saving).
 SERVER_UTC = {"os_usa": -5, "os_euro": 1, "os_asia": 8, "os_cht": 8}
@@ -276,6 +287,27 @@ UNBANNERED = {"amber": "2020-09-28", "kaeya": "2020-09-28", "lisa": "2020-09-28"
               "aloy": "2021-10-13", "manekin": "2025-10-22", "manekina": "2025-10-22"}
 
 
+def banner_image(b) -> str | None:
+    """paimon.moe's art for a banner: "<name> <image>.png" (`image` numbers the reruns)."""
+    return b.get("image") and BANNER_IMAGE_URL.format(urllib.parse.quote(f"{b['name']} {b['image']}.png"))
+
+
+def refresh_data():
+    """Download the repo's latest data files (see wish.load_data) once a day. Offline or a bad file keeps the old one."""
+    for name, key in DATA_FILES.items():
+        path = wish.data_path(name)
+        if path.exists() and time.time() - path.stat().st_mtime < CACHE_DAYS * 86400:
+            continue
+        try:
+            raw = _get(DATA_URL.format(name))
+            if key not in json.loads(raw):
+                continue
+        except Exception:
+            continue
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
+
+
 def release_dates(data) -> dict[str, str]:
     """paimon.moe id -> release date ("YYYY-MM-DD"): the first event banner featuring the character,
     or the day a standard 5★ joined the pool if earlier (Keqing shipped at launch, her banner came later).
@@ -300,6 +332,113 @@ def current_banners(data, region=None, now=None) -> list[tuple[str, dict, dateti
         if ahead:
             out.append((name, *ahead[0]))
     return out
+
+
+def patches(data, region=None) -> list[tuple[str, datetime.datetime, datetime.datetime]]:
+    """(version, start, end) per game version, oldest first: from its first character banner's start
+    to its last one's end."""
+    spans = {}
+    for b in data.get("characters", []):
+        if b.get("version"):
+            start, end = event_times(b, region)
+            s, e = spans.get(b["version"], (start, end))
+            spans[b["version"]] = (min(s, start), max(e, end))
+    return sorted(((v, *t) for v, t in spans.items()), key=lambda p: p[1])
+
+
+def _blocks(js) -> dict[str, str]:
+    """Top-level `  key: {` entries of a paimon.moe data module -> {key: entry source}."""
+    parts = re.split(r"^  (\w+): \{$", js, flags=re.M)
+    return dict(zip(parts[1::2], parts[2::2]))
+
+
+def _field(block, key):
+    m = re.search(rf"^    {key}: (['\"])(.*?)\1,$|^    {key}: (\d+),$", block, re.M)
+    return m and (m[2] if m[3] is None else int(m[3]))
+
+
+def parse_farming(items_js, chars_js, weapons_js) -> list[dict]:
+    """Domain materials -> [{name, kind: talent|weapon, days: [0-6], items: [[name, rarity]]}].
+    characters.js / weaponList.js reference `itemList.x`, so they are scanned with regexes, not parse_js.
+    NOTE: paimon.moe has no `day` on weapon materials from Fontaine on, so those weapons are missing;
+    add a day table here if they matter."""
+    days = {k: [DAYS.index(d) for d in re.findall(r"'(\w+)'", m[1])]
+            for k, b in _blocks(items_js).items() if (m := re.search(r"^    day: \[(.*?)\]", b, re.M))}
+    names = {k: _field(b, "name") for k, b in _blocks(items_js).items()}
+    out = {}
+    for kind, js, pattern, low in (("talent", chars_js, r"book: \[itemList\.(\w+)", 0),
+                                   ("weapon", weapons_js, r"itemList\.(\w+)", 4)):
+        for b in _blocks(js).values():
+            m, rarity = re.search(pattern, b), _field(b, "rarity") or 0
+            if m and m[1] in days and rarity >= low:
+                mat = out.setdefault(m[1], {"name": names[m[1]], "kind": kind, "days": days[m[1]], "items": []})
+                mat["items"].append([_field(b, "name"), rarity])
+    for mat in out.values():
+        mat["items"].sort(key=lambda x: (-x[1], x[0]))
+    return list(out.values())
+
+
+def farming(conn, refresh=False) -> list[dict]:
+    return _cached(conn, "wiki:farming", lambda: parse_farming(
+        *(_get(PAIMON_DATA + f).decode() for f in ("itemList.js", "characters.js", "weaponList.js"))), refresh, days=7)
+
+
+def farm_day(region=None, now=None) -> int:
+    """Today's weekday (0 = Monday) for domains, which turn over at 04:00 server time."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    return (now + datetime.timedelta(hours=SERVER_UTC.get(region, 8) - 4)).weekday()
+
+
+def todays_domains(data, region=None, now=None) -> list[dict]:
+    """Materials farmable today; Sunday opens them all."""
+    day = farm_day(region, now)
+    return [m for m in data if day == 6 or day in m["days"]]
+
+
+def guides(conn, refresh=False) -> dict:
+    """paimon.moe's build guides: {"builds": {paimon id: {"roles": {...}}}, "artifacts": {id: name}}.
+    NOTE: paimon.moe stopped adding builds at 3.6, so newer characters only get the video link."""
+    return _cached(conn, "wiki:guides", lambda: {
+        "builds": parse_js(_get(GUIDES_URL).decode()),
+        "artifacts": {k: v["name"] for k, v in _get_json(ARTIFACT_NAMES_URL).items()},
+    }, refresh, days=7)
+
+
+def guide_roles(data, name) -> list[dict]:
+    """A character's build guide, one dict per role, best first, with display names filled in:
+    {role, recommended, weapons, artifacts, main, subs, talents, note}."""
+    art = lambda x: data["artifacts"].get(x) or x.replace("_", " ").upper()  # "+18%_atk_set" pseudo-sets
+    roles = data["builds"].get(wish.slug(name), {}).get("roles", {})
+    return [{
+        "role": role.replace("_", " "),
+        "recommended": r.get("recommended", False),
+        "weapons": [name_for(w["id"]) + (f" R{w['refine'][0]}" if w.get("refine") else "") for w in r["weapons"]],
+        "artifacts": [art(s[0]) + " (4)" if len(s) == 1 else " / ".join(map(art, s)) + " (2+2)"
+                      for s in r["artifacts"]],
+        "main": [f"{k.title()}: {' / '.join(v)}" for k, v in r.get("mainStats", {}).items()],
+        "subs": r.get("subStats", []),
+        "talents": r.get("talent", []),
+        "note": "\n\n".join(text(x) for x in (r.get("tip"), r.get("note")) if x),
+    } for role, r in sorted(roles.items(), key=lambda kv: not kv[1].get("recommended"))]
+
+
+def build_guide(conn, name) -> list[dict]:
+    """A character's build guide: Teyvault's own (data/builds.json, for releases after paimon.moe stopped
+    at 3.6) first, else paimon.moe's. Same shape as guide_roles; works offline for the own picks."""
+    own = wish.load_data("builds.json")["characters"].get(name)
+    if own:
+        return sorted(own, key=lambda r: not r.get("recommended"))
+    return guide_roles(guides(conn), name)
+
+
+def video_url(name) -> str:
+    """YouTube search for the character's build guides (always current, unlike any fixed list)."""
+    return VIDEO_URL.format(urllib.parse.quote_plus(f"{name} genshin build guide"))
+
+
+def genshintrack_url(name) -> str:
+    """Genshin Track's guide page: "Arataki Itto" -> .../characters/arataki-itto."""
+    return GENSHINTRACK_URL.format(re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-"))
 
 
 def event_image(e) -> str | None:

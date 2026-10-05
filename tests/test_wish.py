@@ -123,6 +123,16 @@ class TestStorage(unittest.TestCase):
         self.assertEqual(calls, ["0", "1011"])
 
 
+class TestPrimogems(unittest.TestCase):
+    def test_log_is_per_uid_newest_first(self):
+        conn = db.connect(":memory:")
+        for n in (100, 260, 20):
+            db.log_primogems(conn, "1", n)
+        db.log_primogems(conn, "2", 5)
+        self.assertEqual([r["count"] for r in db.primogem_log(conn, "1")], [20, 260, 100])
+        self.assertEqual(len(db.primogem_log(conn, "1", limit=2)), 2)
+
+
 class TestVault(unittest.TestCase):
     def test_parse_cookie_string_keeps_only_wanted(self):
         raw = "_ga=x; ltoken_v2=abc; ltuid_v2=123; mi18nLang=en-us; cookie_token_v2=t=1"

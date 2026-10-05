@@ -136,9 +136,21 @@ def sync(conn, gacha_url, **kw) -> int:
 
 # --- Stats ------------------------------------------------------------------
 
+def data_path(name) -> Path:
+    """Where wiki.refresh_data() keeps the repo's latest copy of a teyvat/data file."""
+    return db.default_path().parent / "data" / name
+
+
+def load_data(name):
+    """A teyvat/data JSON file: the copy downloaded from the repo if there is one, else the bundled one,
+    so new standard 5★s and meta tiers reach installed apps without a release."""
+    path = data_path(name)
+    text = path.read_text("utf-8") if path.exists() else resources.files("teyvat").joinpath("data", name).read_text("utf-8")
+    return json.loads(text)
+
+
 def load_standard() -> dict[str, str]:
-    text = resources.files("teyvat").joinpath("data/standard_5stars.json").read_text("utf-8")
-    return json.loads(text)["characters"]
+    return load_data("standard_5stars.json")["characters"]
 
 
 def is_standard(name, pull_time, standard) -> bool:
