@@ -16,7 +16,7 @@ teyvault = "teyvat.cli:main"
 teyvault-gui = "teyvat.gui:run"
 
 [tool.setuptools]
-packages = ["teyvat"]
+packages = ["teyvat", "teyvat.gui"]
 
 [tool.setuptools.package-data]
 teyvat = ["data/*.json"]
