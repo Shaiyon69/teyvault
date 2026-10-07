@@ -9,13 +9,33 @@ from teyvat.gui.app import EVENTS
 from teyvat.gui.theme import STRETCH
 from teyvat.gui.widgets import card, label, month_calendar, muted, skeleton, timeline_chart
 
+# name fragment -> what the event is; first match wins, so weapon banners come before character ones.
+# Banners named without "Banner" are matched by banners.js's names (event_kind); the ones paimon.moe hasn't
+# added there yet are listed here.
+KINDS = [("epitome invocation", "Weapon banner"), ("chronicled", "Chronicled banner"), ("banner", "Character banner"),
+         ("surging ballad", "Character banner"),
+         ("battle pass", "Battle Pass"), ("spiral abyss", "Endgame"), ("imaginarium", "Endgame"),
+         ("stygian", "Endgame"), ("daily login", "Login event"), ("maintenance", "Maintenance"), ("version", "Update")]
+
+
+BANNER_KINDS = {"characters": "Character banner", "weapons": "Weapon banner", "chronicled": "Chronicled banner"}
+
+
+def event_kind(e, banners=None):
+    """What the event is, from its name (paimon.moe's timeline has no type field).
+    `banners`: banners.js's {pool: [banner, ...]}, to recognise banners named without "Banner"."""
+    n = e["name"].lower()
+    named = next((BANNER_KINDS.get(pool, "Banner") for pool, bs in (banners or {}).items()
+                  for b in bs if b["name"].lower() in n), None)
+    return named or next((kind for key, kind in KINDS if key in n), "In-game event")
+
 
 def build(app):
     page, phone, active_role = app.page, app.phone, app.active_role
     GOLD = theme.accents()[0]
 
     ev = {"events": [], "rows": [], "patches": [], "region": None, "month": None, "selected": None,
-          "mode": db.get_meta(db.connect(), "events_view", "calendar")}
+          "banners": {}, "mode": db.get_meta(db.connect(), "events_view", "calendar"), "h": None}
     month_label = ft.Text(size=16, weight=ft.FontWeight.W_600)
     month_nav = ft.Row([
         ft.IconButton(ft.Icons.CHEVRON_LEFT_ROUNDED, tooltip="Previous month", on_click=lambda _: shift_month(-1)),
@@ -36,6 +56,16 @@ def build(app):
     calendar_body = ft.Column([skeleton(5, height=64 if phone else 84)], horizontal_alignment=STRETCH,
                               expand=not phone)
     calendar_hint = muted("", size=13)
+
+    def sized(e):
+        """PC: refit the Gantt when the card's height changes (window resize, first layout)."""
+        if ev["h"] is None or abs(e.height - ev["h"]) > 4:
+            ev["h"] = e.height
+            if ev["mode"] == "timeline" and ev["events"]:
+                render_events()
+                page.update()
+    if not phone:
+        calendar_body.on_size_change = sized
     calendar_card = card(ft.Row([month_label, ft.Container(expand=True), month_nav, mode_pick],
                                 vertical_alignment=ft.CrossAxisAlignment.CENTER),
                          calendar_hint, calendar_body, title="Events", expand=None if phone else 2)
@@ -64,6 +94,7 @@ def build(app):
         return [
             ft.Image(src=wiki.image(art), border_radius=10, fit=ft.BoxFit.COVER, height=110,
                      error_content=ft.Container()) if art else ft.Container(),
+            label(event_kind(e, ev["banners"])),
             ft.Text(e["name"], size=16, weight=ft.FontWeight.W_600),
             ft.Text(when, size=13, weight=ft.FontWeight.W_600, color=GOLD),
             muted(f"{start.astimezone():%d %b %H:%M} – {end.astimezone():%d %b %H:%M}", size=12),
@@ -80,12 +111,24 @@ def build(app):
     def event_row(e, start, end):
         now = datetime.datetime.now().astimezone()
         art = wiki.event_image(e)
+        left = end - now
+        status = ("Ended" if left.total_seconds() < 0 else f"{left.days}d {left.seconds // 3600}h left" if start <= now
+                  else f"Starts in {(start - now).days}d")
         return ft.Container(ft.Row([
             ft.Container(width=64, height=40, border_radius=8, bgcolor=e.get("color", GOLD),
                          image=art and ft.DecorationImage(src=wiki.image(art), fit=ft.BoxFit.COVER)),
-            ft.Text(e["name"], size=13, weight=ft.FontWeight.W_600, max_lines=2,
-                    overflow=ft.TextOverflow.ELLIPSIS, expand=True),
-            muted(f"{start.astimezone():%d %b} – {end.astimezone():%d %b}", size=12, no_wrap=True),
+            ft.Column([
+                ft.Text(e["name"], size=13, weight=ft.FontWeight.W_600, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS),
+                # numeric dates stay short enough to keep their own column instead of wrapping under the status
+                ft.Row([ft.Text(spans=[ft.TextSpan(f"{event_kind(e, ev['banners'])} · ",
+                                                   ft.TextStyle(color=GOLD, weight=ft.FontWeight.W_600)),
+                                       ft.TextSpan(status)], size=12, color=ft.Colors.ON_SURFACE_VARIANT,
+                                max_lines=1, overflow=ft.TextOverflow.ELLIPSIS, expand=True),
+                        muted(f"{start.astimezone():%d/%m} – {end.astimezone():%d/%m}", size=12, no_wrap=True)],
+                       spacing=8),
+                muted(e.get("description") or "", size=12, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS,
+                      visible=bool(e.get("description"))),
+            ], spacing=2, expand=True),
         ], spacing=10, vertical_alignment=ft.CrossAxisAlignment.START), padding=6, border_radius=10, opacity=0.45 if end < now else 1,
             on_click=lambda _: open_event(e, start, end))
 
@@ -108,10 +151,9 @@ def build(app):
         calendar_hint.value = ("From paimon.moe, in your local time. " +
                                ("Drag to scroll, tap an event for its details." if timeline else
                                 "Event art marks the days events start and end. Tap a day for its patch's events."))
-        calendar_body.controls = [timeline_chart(ev["rows"], show_event) if timeline else
-                                  month_calendar(ev["month"], ev["events"], d, pick_day, compact=phone)]
-        # the Gantt scrolls up and down inside the card; the grid fills it (an expanding child can't scroll)
-        calendar_body.scroll = ft.ScrollMode.AUTO if timeline and not phone else None
+        # PC: the Gantt's rows squeeze into the card's measured height, like the grid's weeks share it
+        calendar_body.controls = [timeline_chart(ev["rows"], show_event, height=None if phone else ev["h"]) if timeline
+                                  else month_calendar(ev["month"], ev["events"], d, pick_day, compact=phone)]
         if patch:
             version, start, end = patch
             patch_title.value = f"Version {version}"
@@ -151,7 +193,8 @@ def build(app):
             page.update()
             return
         try:
-            ev["patches"] = wiki.patches(wiki.banners(conn), region)
+            ev["banners"] = wiki.banners(conn)
+            ev["patches"] = wiki.patches(ev["banners"], region)
         except Exception:
             ev["patches"] = []  # the details card falls back to the tapped day's events
         ev["rows"] = [[(e, *wiki.event_times(e, region)) for e in row] for row in rows]

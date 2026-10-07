@@ -153,12 +153,16 @@ def month_calendar(month, events, selected, on_pick, compact=False):
                      spacing=4, expand=not compact)
 
 
-def timeline_chart(rows, on_pick, day_px=28, row_h=40):
+def timeline_chart(rows, on_pick, day_px=28, row_h=40, height=None):
     """Gantt of event rows [(event, start, end), ...], from a week ago to the last end (at most two months ahead).
-    Scrolls sideways (mouse drag too, which Flutter leaves out on desktop); tapping a bar calls on_pick(event, start, end)."""
+    Pans sideways by drag (mouse too); tapping a bar calls on_pick(event, start, end).
+    `height`: squeeze the rows to fit it (no vertical scroll); names hide once bars get too thin to hold them."""
     now = datetime.datetime.now().astimezone()
     first = datetime.datetime.combine(now.date() - datetime.timedelta(7), datetime.time(), now.tzinfo)
     rows = [r for r in ([x for x in row if x[2] > first] for row in rows) if r]
+    if height:  # minus the date header (36 + 8 spacing)
+        row_h = max(8, min(row_h, (height - 44) / max(len(rows), 1)))
+    gap, font = min(6, row_h * 0.15), min(12, row_h * 0.45)
     days = min(max([(x[2] - first).days + 1 for r in rows for x in r], default=21), 63)
     width = days * day_px
     pos = lambda dt: min(max((dt - first).total_seconds() / 86400 * day_px, 0), width)
@@ -176,23 +180,23 @@ def timeline_chart(rows, on_pick, day_px=28, row_h=40):
             x0 = pos(start)
             color = e.get("color", theme.GOLD)
             bars.append(ft.Container(
-                ft.Container(ft.Text(e["name"], size=12, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE,
+                ft.Container(ft.Text(e["name"], size=font, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE,
+                                     visible=row_h >= 16,
                                      no_wrap=True, overflow=ft.TextOverflow.ELLIPSIS,
                                      style=ft.TextStyle(shadow=ft.BoxShadow(blur_radius=4, color=ft.Colors.BLACK))),
                              gradient=ft.LinearGradient([color, ft.Colors.with_opacity(0, color)], stops=[0.25, 0.9]),
                              padding=ft.Padding.symmetric(horizontal=8), alignment=ft.Alignment.CENTER_LEFT),
-                left=x0, top=y * row_h, width=max(pos(end) - x0, 6), height=row_h - 6, bgcolor=color,
+                left=x0, top=y * row_h, width=max(pos(end) - x0, 6), height=row_h - gap, bgcolor=color,
                 image=event_art(e),  # banner art behind the name
-                border_radius=8, clip_behavior=ft.ClipBehavior.ANTI_ALIAS, opacity=0.4 if end < now else 1,
+                border_radius=min(8, row_h / 3), clip_behavior=ft.ClipBehavior.ANTI_ALIAS, opacity=0.4 if end < now else 1,
                 tooltip=e["name"], on_click=lambda _, x=(e, start, end): on_pick(*x)))
     height = max(len(rows) * row_h, row_h)
     now_line = ft.Container(left=pos(now) - 1, top=0, width=2, height=height, bgcolor=ft.Colors.PRIMARY)
-    strip = ft.Row([ft.Column([header, ft.Stack(bars + [now_line], width=width, height=height)], spacing=8)],
-                   scroll=ft.ScrollMode.AUTO)
-
-    async def drag(e):
-        await strip.scroll_to(delta=-(e.primary_delta or 0), duration=0)
-    return ft.GestureDetector(strip, on_horizontal_drag_update=drag)
+    # Flutter pans it natively (mouse drag, touch, trackpad): a scroll_to per drag event from Python lagged.
+    # The viewer is exactly as tall as the chart, so the pan can only go sideways.
+    chart = ft.Column([header, ft.Stack(bars + [now_line], width=width, height=height)], spacing=8, tight=True)
+    return ft.Container(ft.InteractiveViewer(chart, constrained=False, scale_enabled=False),
+                        height=36 + 8 + height)
 
 
 def banner_tile(pool, b, start, end):
