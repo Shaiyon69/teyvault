@@ -7,7 +7,7 @@ name = "teyvault"
 version = "1.5.0"
 description = "Genshin Impact account companion: daily check-in, codes, wish history."
 requires-python = ">=3.11"
-dependencies = ["keyring>=24", "flet==1.0.3", "openpyxl>=3.1", "flet-webview==1.0.3", "pywebview>=6; sys_platform == 'win32'"]
+dependencies = ["keyring>=24", "flet==1.0.3", "openpyxl>=3.1", "flet-webview==1.0.3", "pywebview>=6; platform_system == 'Windows'"]
 
 [project.scripts]
 teyvault = "teyvat.cli:main"
@@ -35,3 +35,7 @@ exclude = ["tests", "build", "dist", ".github", "installer.iss", "*.egg-info"]
 # iOS asks before an app talks to the local network (phone sync pulls from the PC).
 [tool.flet.ios.info]
 NSLocalNetworkUsageDescription = "Teyvault receives your wish history from Teyvault on your PC over Wi-Fi."
+
+# Flet 1.0.3 overrides jni to 1.0.0, but jni_flutter 1.0.4+ needs jni ^1.1.0 and breaks the APK build.
+[tool.flet.flutter.pubspec.dependency_overrides]
+jni_flutter = "1.0.3"
