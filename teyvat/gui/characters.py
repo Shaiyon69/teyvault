@@ -23,7 +23,7 @@ def build(app):
     characters_view = ft.Column([page_head(CHARACTERS), chars_body], spacing=16, horizontal_alignment=STRETCH)
     builds = {}  # character id -> (detail, property_map); fetched on first open, one call per character
 
-    roster = {"chars": [], "role": None, "release": {}}  # last loaded list, re-filtered without another request
+    roster = {"chars": [], "role": None, "release": {}, "wiki": {}}  # last loaded list, re-filtered without another request
     chars_count = muted("")
     chars_grid = ft.Column(spacing=12, horizontal_alignment=STRETCH)
     META_ROLES = ("On-field DPS", "Off-field DPS", "Support")
@@ -37,14 +37,21 @@ def build(app):
     f_rarity = char_filter("Rarity", [("5", "5★"), ("4", "4★")], width=120)
     f_tier = char_filter("Meta tier", [(t, t) for t in PRYDWEN["tiers"]] + [("-", "Unrated")])
     f_role = char_filter("Meta role", [(r, r) for r in META_ROLES], width=170)
+    # filled from the HoYoLAB wiki catalogue when the roster loads
+    f_region, f_stat = char_filter("Region", []), char_filter("Ascension stat", [], width=170)
+    wiki_of = lambda c, key: (roster["wiki"].get(c["name"], {}).get(key) or ["Unknown"])[0]
     f_sort = pill_select("Sort", [ft.DropdownOption("game", "HoYoLAB order"), ft.DropdownOption("tier", "Meta tier"),
-                                  ft.DropdownOption("level", "Level"), ft.DropdownOption("release", "Release order")],
+                                  ft.DropdownOption("level", "Level"), ft.DropdownOption("release", "Release order"),
+                                  ft.DropdownOption("const", "Constellation"), ft.DropdownOption("rarity", "Rarity"),
+                                  ft.DropdownOption("name", "Name")],
                          "game", lambda e: show_chars())
     f_group = pill_select("Group by", [ft.DropdownOption(k, v) for k, v in (
         ("none", "None"), ("element", "Element"), ("weapon", "Weapon"),
-        ("rarity", "Rarity"), ("tier", "Meta tier"), ("role", "Meta role"))], "none", lambda e: show_chars())
+        ("rarity", "Rarity"), ("region", "Region"), ("stat", "Ascension stat"), ("tier", "Meta tier"),
+        ("role", "Meta role"))], "none", lambda e: show_chars())
     f_search = search_field("Search characters", lambda e: show_chars())
-    chars_filters = filter_bar([f_search], ft.Row([f_element, f_weapon, f_rarity, f_tier, f_role, f_sort, f_group]))
+    chars_filters = filter_bar([f_search], ft.Row([f_element, f_weapon, f_rarity, f_region, f_stat, f_tier, f_role,
+                                                        f_sort, f_group]))
 
     def show_chars():
         """Apply the filter bar to the loaded roster. Tier and role filters match the same rating, so
@@ -63,7 +70,8 @@ def build(app):
         q = (f_search.value or "").strip().lower()
         shown = [c for c in roster["chars"] if q in c["name"].lower()
                  and any_(f_element, c["element"]) and any_(f_weapon, WEAPON_TYPES.get(c["weapon_type"]))
-                 and any_(f_rarity, str(c["rarity"])) and meta_ok(c)]
+                 and any_(f_rarity, str(c["rarity"])) and any_(f_region, wiki_of(c, "character_region"))
+                 and any_(f_stat, wiki_of(c, "character_property")) and meta_ok(c)]
         if f_sort.value == "tier":
             shown.sort(key=lambda c: min((ranks[r[0]] for r in ratings(c)), default=len(ranks)))
         elif f_sort.value == "level":
@@ -71,6 +79,12 @@ def build(app):
         elif f_sort.value == "release":  # oldest first; ones newer than paimon.moe's data go last
             slug = lambda n: "traveler" if n.lower().startswith("traveler") else wish.slug(n)
             shown.sort(key=lambda c: roster["release"].get(slug(c["name"]), "9999"))
+        elif f_sort.value == "const":
+            shown.sort(key=lambda c: -c["actived_constellation_num"])
+        elif f_sort.value == "rarity":
+            shown.sort(key=lambda c: -c["rarity"])
+        elif f_sort.value == "name":
+            shown.sort(key=lambda c: c["name"])
         def best(c):  # top rating that passes the tier and role filters, or None
             return next((r for r in ratings(c) if any_(f_tier, r[0])), None)
 
@@ -79,6 +93,8 @@ def build(app):
             "element": (lambda c: c["element"], list(ELEMENT_COLORS)),
             "weapon": (lambda c: WEAPON_TYPES.get(c["weapon_type"], "Other"), list(WEAPON_TYPES.values())),
             "rarity": (lambda c: f"{c['rarity']}★", ["5★", "4★"]),
+            "region": (lambda c: wiki_of(c, "character_region"), [o.key for o in f_region.options[1:]]),
+            "stat": (lambda c: wiki_of(c, "character_property"), [o.key for o in f_stat.options[1:]]),
             "tier": (lambda c: best(c)[0] if best(c) else "Unrated", PRYDWEN["tiers"] + ["Unrated"]),
             "role": (lambda c: best(c)[1] if best(c) else "Unrated", [*META_ROLES, "Unrated"]),
         }.get(f_group.value, (lambda c: "", [""]))
@@ -229,7 +245,14 @@ def build(app):
             release = wiki.release_dates(wiki.banners(db.connect()))
         except Exception:
             release = {}  # offline with no cache: "Release order" keeps HoYoLAB's order
-        roster.update(chars=chars, role=role, release=release)
+        try:
+            info = {e["name"]: e["filters"] for e in wiki.entries(db.connect(), "Characters")}
+        except Exception:
+            info = {}  # offline with no cache: region/stat filters show "Unknown"
+        for d, key in ((f_region, "character_region"), (f_stat, "character_property")):
+            d.options = [ft.DropdownOption("All")] + [ft.DropdownOption(v) for v in wiki.filters(
+                [{"filters": f} for f in info.values()]).get(key, [])]
+        roster.update(chars=chars, role=role, release=release, wiki=info)
         chars_body.controls = [chars_filters, chars_count, chars_grid]
         show_chars()
         # Roster shows right away (icons not cached yet load from the web); keep them for next time.

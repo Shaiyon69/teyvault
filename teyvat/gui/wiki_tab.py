@@ -24,15 +24,17 @@ def build(app):
     wiki_state = {"cat": "Characters", "items": [], "limit": WIKI_PAGE, "done": set()}
     wiki_search = search_field("Search", lambda e: show_wiki(reset=True))
     wiki_filters = ft.Row()
-    wiki_sort = pill_select("Sort", [ft.DropdownOption("name", "Name"), ft.DropdownOption("rarity", "Rarity")],
+    wiki_sort = pill_select("Sort", [ft.DropdownOption("name", "Name"), ft.DropdownOption("rarity", "Rarity"),
+                                     ft.DropdownOption("new", "Newest")],
                             "name", lambda e: show_wiki(reset=True))
+    wiki_group = pill_select("Group by", [], "none", lambda e: show_wiki(reset=True))  # options follow the category
     wiki_count = muted("")
     wiki_grid = ft.Column(spacing=12, horizontal_alignment=STRETCH)
 
     def wiki_dropdown(name, values, key):
         """Filter pill; the set changes with the category, so PC sizing is applied here, not by filter_bar."""
         d = pill_select(name, [ft.DropdownOption("All")] + [ft.DropdownOption(v) for v in values],
-                        on_select=lambda e: show_wiki(reset=True), width=170 if phone else None)
+                        on_select=lambda e: show_wiki(reset=True), width=app.pill_w() if phone else None)
         d.data, d.expand = key, not phone
         return d
 
@@ -170,10 +172,19 @@ def build(app):
         else:
             shown = [e for e in items if (q in e["name"].lower() or q in e["desc"].lower())
                      and all(v in e["filters"].get(k, []) for k, v in picks.items())]
-            shown.sort(key=lambda e: (-wiki.rarity(e), e["name"]) if wiki_sort.value == "rarity" else e["name"])
+            shown.sort(key={"rarity": lambda e: (-wiki.rarity(e), e["name"]),
+                            "new": lambda e: -int(e["id"])}.get(wiki_sort.value, lambda e: e["name"]))
             owned = {c["name"] for c in app.roster["chars"]} if cat == "Characters" else set()
             wiki_count.value = f"{len(shown):,} of {len(items):,} {cat.lower()}. Tap one for details."
-            wiki_grid.controls = [tile_grid([wiki_tile(e, e["name"] in owned) for e in shown[:wiki_state["limit"]]])]
+            groups = {}  # first value of the picked filter key; the page limit counts across groups
+            for e in shown[:wiki_state["limit"]]:
+                groups.setdefault((e["filters"].get(wiki_group.value) or [""])[0], []).append(e)
+            keys = sorted(groups, key=lambda k: (not k, k))  # "" (no value / no grouping) last
+            wiki_grid.controls = [ft.Column([
+                ft.Row([ft.Text(k or "Other", size=16, weight=ft.FontWeight.W_600), muted(str(len(groups[k])))],
+                       spacing=8, visible=wiki_group.value != "none"),
+                tile_grid([wiki_tile(e, e["name"] in owned) for e in groups[k]])],
+                spacing=8, horizontal_alignment=STRETCH) for k in keys]
         wiki_state["more"] = len(shown) > wiki_state["limit"]
         wiki_body.update()
 
@@ -205,8 +216,11 @@ def build(app):
                 wiki_sort, wiki_dropdown("Category", sorted({a["category"] for a in items}), "category"),
                 wiki_dropdown("Status", ["Done", "To do"], "status")]
         else:
-            wiki_filters.controls = [wiki_sort] + [wiki_dropdown(wiki.label(k), vs, k)
-                                                   for k, vs in wiki.filters(items).items()]
+            keys = wiki.filters(items)
+            wiki_group.options = [ft.DropdownOption("none", "None")] + [ft.DropdownOption(k, wiki.label(k)) for k in keys]
+            wiki_group.value = "none"
+            wiki_filters.controls = [wiki_sort, wiki_group] + [wiki_dropdown(wiki.label(k), vs, k)
+                                                               for k, vs in keys.items()]
         wiki_sort.visible = cat not in ("Achievements", "Enemies")
         show_wiki(reset=True)
         if cat != "Achievements":  # keep the catalogue's pictures for offline use
@@ -232,8 +246,8 @@ def build(app):
     wiki_refresh = ft.IconButton(ft.Icons.REFRESH_ROUNDED, tooltip="Download again",
                                  on_click=guarded(lambda: load_wiki(refresh=True)))
     wiki_bar = filter_bar([wiki_search, wiki_refresh], wiki_filters)
-    if not phone:
-        wiki_sort.width, wiki_sort.expand = None, True
+    for d in (wiki_sort, wiki_group):
+        d.width, d.expand = (app.pill_w(), False) if phone else (None, True)
     wiki_body = ft.Column([
         ft.Row([wiki_cat if phone else wiki_tabs]), wiki_bar,
         wiki_count, wiki_grid,
