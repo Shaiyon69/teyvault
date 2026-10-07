@@ -76,17 +76,20 @@ def main(page: ft.Page, start=0):
     if phone:
         # Icons only (the label is the long-press tooltip), so the bar stays slim.
         nav = ft.NavigationBar(on_change=on_change, label_behavior=ft.NavigationBarLabelBehavior.ALWAYS_HIDE,
-                               height=64, destinations=[
+                               height=64, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH, destinations=[
             ft.NavigationBarDestination(icon=icon, selected_icon=sel, label=label)
             for label, icon, sel in SECTIONS[:ACCOUNT]])
-        page.navigation_bar = nav
         page.appbar = ft.AppBar(title=section_title, bgcolor=ft.Colors.SURFACE, center_title=False,
                                 actions=[ft.IconButton(ft.Icons.SETTINGS_OUTLINED, tooltip="Settings",
                                                        on_click=lambda e: select(SETTINGS)),
                                          ft.Container(status_chip, padding=ft.Padding.only(right=12))])
-        body = ft.SafeArea(ft.Column(views, scroll=ft.ScrollMode.AUTO, spacing=16, on_scroll=app.on_page_scroll,
-                                     scroll_interval=200, horizontal_alignment=STRETCH),
-                           expand=True, minimum_padding=16)
+        # Floating pill bar over the content; the scroll's bottom padding keeps the last card clear of it.
+        scroll = ft.Column([*views, ft.Container(height=80)], scroll=ft.ScrollMode.AUTO, spacing=16,
+                           on_scroll=app.on_page_scroll, scroll_interval=200, horizontal_alignment=STRETCH)
+        floating = ft.Container(nav, left=24, right=24, bottom=8, border_radius=32,
+                                clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+                                shadow=ft.BoxShadow(blur_radius=16, color=ft.Colors.with_opacity(0.3, ft.Colors.BLACK)))
+        body = ft.SafeArea(ft.Stack([scroll, floating], fit=ft.StackFit.EXPAND, expand=True), expand=True, minimum_padding=16)
         if STYLE["panel"]:  # no separate panel on phones: the whole page is the panel
             page.bgcolor = STYLE["panel"]
     else:

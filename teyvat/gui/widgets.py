@@ -147,8 +147,10 @@ def month_calendar(month, events, selected, on_pick, compact=False):
 
     head = ft.Row([ft.Container(muted(n[:1] if compact else n, size=11), expand=1, alignment=ft.Alignment.CENTER)
                    for n in ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")], spacing=0)
+    # compact sits in the page scroll (unbounded height): STRETCH there asks for an infinite cell and draws nothing
     return ft.Column([head] + [ft.Row([day_cell(d) for d in w], spacing=4, expand=not compact,
-                                      vertical_alignment=STRETCH) for w in weeks], spacing=4, expand=not compact)
+                                      vertical_alignment=None if compact else STRETCH) for w in weeks],
+                     spacing=4, expand=not compact)
 
 
 def timeline_chart(rows, on_pick, day_px=28, row_h=40):

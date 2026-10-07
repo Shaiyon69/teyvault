@@ -132,9 +132,9 @@ def build(app):
         region_cards[:] = [region_card(w, [k for k in regions if k["parent_id"] == w["id"]])
                            for w in regions if not w["parent_id"]]
         flow_regions()
-        # 12-column rows: four stats, then three (phones: two per row)
-        stat = lambda name, value, color=None, wide=False: tile(name, value, color=color, raised=False,
-                                                                col={"xs": 6, "md": 4 if wide else 3})
+        # 12-column rows: four stats, then three (phones: two per row, the odd one out full width)
+        stat = lambda name, value, color=None, wide=False, last=False: tile(
+            name, value, color=color, raised=False, col={"xs": 12 if last else 6, "md": 4 if wide else 3})
         gap = 12 if phone else 16
         world_stats.controls = [
             ft.ResponsiveRow([
@@ -146,7 +146,7 @@ def build(app):
             ft.ResponsiveRow([
                 stat("Waypoints", f"{st['way_point_number']:,}", wide=True),
                 stat("Domains", str(st["domain_number"]), wide=True),
-                stat("Chests opened", f"{chests:,}", GOLD, wide=True),
+                stat("Chests opened", f"{chests:,}", GOLD, wide=True, last=True),  # phones: no half-empty row
             ], spacing=gap, run_spacing=gap),
         ]
         world_body.controls = [

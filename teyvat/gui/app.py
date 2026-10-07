@@ -66,14 +66,20 @@ class App:
 
     def filter_bar(self, row, panel):
         """Full-width search (plus any buttons), then the filter pills: one line that fills the width on PC,
-        scrolling sideways on phones."""
+        two to a row on phones."""
         panel.spacing = 8
         if self.phone:
-            panel.scroll = ft.ScrollMode.HIDDEN
+            panel.wrap, panel.run_spacing = True, 8
+            for d in panel.controls:
+                d.width = self.pill_w()
         else:
             for d in panel.controls:
                 d.width, d.expand = None, True
         return ft.Column([ft.Row(row, spacing=8), panel], spacing=8, horizontal_alignment=STRETCH)
+
+    def pill_w(self):
+        """Phone filter pill width: two per row."""
+        return (self.content_size()[0] - 8) // 2
 
     def active_role(self):
         """The game account World/Characters show: the one picked in Settings, else the first."""
