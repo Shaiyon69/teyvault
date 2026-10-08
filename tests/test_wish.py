@@ -61,6 +61,24 @@ class TestStats(unittest.TestCase):
         self.assertTrue(wish.icon_url('"The Catch"', "Weapon").endswith("/weapons/the_catch.png"))
 
 
+class TestOdds(unittest.TestCase):
+    def test_pity_bounds(self):
+        self.assertEqual(wish.odds(0), 0)
+        self.assertAlmostEqual(wish.odds(90, guaranteed=True), 1)
+        self.assertAlmostEqual(wish.odds(180), 1)
+        self.assertAlmostEqual(wish.odds(1, pity=89, guaranteed=True), 1)
+        self.assertAlmostEqual(wish.odds(160, pool="weapon"), 1)  # path fills after one miss
+        self.assertLess(wish.odds(179), 1)
+        self.assertLess(wish.odds(180, copies=2), 1)
+
+    def test_more_pulls_never_hurt(self):
+        prev = 0
+        for n in range(0, 200, 10):
+            cur = wish.odds(n, copies=2)
+            self.assertGreaterEqual(cur, prev)
+            prev = cur
+
+
 class TestStorage(unittest.TestCase):
     def test_uigf_round_trip_and_idempotent_insert(self):
         src = db.connect(":memory:")

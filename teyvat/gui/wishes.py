@@ -1,4 +1,5 @@
 """Wishes tab: sync, import/export, the current banners and pity/50-50 stats per pool."""
+import datetime
 import json
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from teyvat.gui.widgets import banner_tile, card, muted, pity_color, pity_meter,
 POOL_TITLES = {"character": "Character Event", "weapon": "Weapon Event", "standard": "Standard",
                "chronicled": "Chronicled", "beginner": "Beginner"}
 PRIMOS_PER_PULL = 160
+PLAN_BANNERS = {"character": "Character Event Wish", "weapon": "Weapon Event Wish"}  # wiki.BANNER_POOLS names
 
 
 def build(app):
@@ -43,11 +45,50 @@ def build(app):
         wiki.cache_images([wiki.banner_image(b) for _, b, _, _ in live]
                           + [wiki.icon_for(wiki.name_for(x)) for _, b, _, _ in live
                              for x in b.get("featured", [])[:6] + b.get("featuredRare", [])[:5]])
+        plan_state.update({name: end for name, _, _, end in live})
+        plan()
         banners_row.controls = [banner_tile(*t) for t in live]
         for b in banners_row.controls:  # two banners split the row in half instead of leaving a third empty
             b.col = {"xs": 12, "md": 12 if len(live) == 1 else 6, "xl": max(4, 12 // len(live))}
         banners_card.visible = bool(live)
         page.update()
+
+    # Pull planner: odds of the featured 5★ from saved primos and fates, starting at the history's pity.
+    plan_state = {"pools": {}}  # wish.stats of the shown UID, plus each banner's end time by name
+    num_field = lambda name, width: ft.TextField(
+        label=name, width=width, dense=True, filled=True, border_radius=14, keyboard_type=ft.KeyboardType.NUMBER,
+        on_change=lambda e: (plan(), plan_card.update()))
+    primo_in, fate_in = num_field("Primogems", 140), num_field("Fates", 100)
+    plan_pool = ft.SegmentedButton(
+        selected=["character"], show_selected_icon=False, on_change=lambda e: (plan(reset=True), plan_card.update()),
+        segments=[ft.Segment("character", label="Character"), ft.Segment("weapon", label="Weapon")])
+    copies_pick = ft.Dropdown(label="Goal", dense=True, filled=True, border_radius=14, width=110,
+                              on_select=lambda e: (plan(), plan_card.update()))
+    guaranteed_box = ft.Checkbox(label="Guaranteed", on_change=lambda e: (plan(), plan_card.update()))
+    plan_odds = ft.Text("-", size=28, weight=ft.FontWeight.BOLD, color=GOLD)
+    plan_info = muted("", size=12)
+
+    def plan(reset=False):
+        """Recompute the odds; `reset` refills the goal options and the guarantee for the picked pool."""
+        pool = plan_pool.selected[0]
+        s = plan_state["pools"].get(pool, {})
+        if reset:
+            copies_pick.options = [ft.DropdownOption(str(i + 1), f"C{i}" if pool == "character" else f"R{i + 1}")
+                                   for i in range(7 if pool == "character" else 5)]
+            copies_pick.value, guaranteed_box.value = "1", s.get("guaranteed", False)
+        num = lambda f: int(t) if (t := (f.value or "").replace(",", "").strip()).isdigit() else 0
+        pulls, pity = num(fate_in) + num(primo_in) // PRIMOS_PER_PULL, s.get("pity", 0)
+        plan_odds.value = f"{wish.odds(pulls, pity, guaranteed_box.value, int(copies_pick.value), pool):.1%}"
+        end = plan_state.get(PLAN_BANNERS[pool])
+        days = (end - datetime.datetime.now(datetime.timezone.utc)).days if end else None
+        plan_info.value = f"{pulls:,} pulls from pity {pity}" + (f" · banner ends in {days} days" if days else "")
+
+    plan(reset=True)
+    plan_card = card(ft.Row([
+        ft.Row([plan_pool, primo_in, fate_in, copies_pick, guaranteed_box], wrap=True, spacing=12, run_spacing=12,
+               expand=True, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+        ft.Column([plan_odds, plan_info], spacing=0, horizontal_alignment=ft.CrossAxisAlignment.END),
+    ], wrap=phone, spacing=16, vertical_alignment=ft.CrossAxisAlignment.CENTER), title="Pull planner")
 
     def set_view(key):
         def handler(e):
@@ -130,6 +171,9 @@ def build(app):
         uid_pick.visible = len(uids) > 1  # a picker with one choice is just noise
         wish_totals.controls = []
         if not uids:
+            plan_state["pools"] = {}
+            plan(reset=True)
+            plan_card.update()
             wish_totals.update()
             stats_view.controls = [card(
                 ft.Icon(ft.Icons.AUTO_AWESOME_ROUNDED, size=40, color=ft.Colors.PRIMARY),
@@ -144,6 +188,11 @@ def build(app):
         uid_pick.value = uid
         rows = db.wishes(conn, uid)
         pools = wish.stats(rows, wish.load_standard())
+        if not primo_in.value and (saved := db.primogem_log(conn, uid, limit=1)):
+            primo_in.value = str(saved[0]["count"])
+        plan_state["pools"] = pools
+        plan(reset=True)
+        plan_card.update()
         wish_totals.controls = overview(rows, pools)
         wish_totals.update()
         stats_view.controls = [
@@ -242,5 +291,6 @@ def build(app):
     return ft.Column([
         page_head(WISHES, sync_card, sub=wish_totals, inline=True),
         banners_card,
+        plan_card,
         stats_view,
     ], spacing=16, horizontal_alignment=STRETCH)
