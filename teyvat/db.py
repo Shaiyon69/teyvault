@@ -1,4 +1,5 @@
 import datetime
+import json
 import os
 import sqlite3
 from pathlib import Path
@@ -130,3 +131,12 @@ def get_meta(conn, key, default=None):
 def set_meta(conn, key, value) -> None:
     with conn:
         conn.execute("INSERT OR REPLACE INTO meta VALUES (?, ?)", (key, value))
+
+
+def get_json(conn, key, default=None):
+    value = get_meta(conn, key)
+    return default if value is None else json.loads(value)
+
+
+def set_json(conn, key, value) -> None:
+    set_meta(conn, key, json.dumps(value))

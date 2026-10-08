@@ -1,4 +1,7 @@
-"""Characters tab: the account's roster with Prydwen meta tiers, filters, and each character's build."""
+"""Characters tab: the account's roster with Prydwen meta tiers, filters, each character's build, and a
+farming planner that totals the materials of several characters."""
+import time
+
 import flet as ft
 
 from teyvat import db, hoyolab, vault, wiki, wish
@@ -10,6 +13,7 @@ from teyvat.gui.widgets import (card, clean, crit_value, detail_dialog, detail_h
                                 skill_text, tab_view)
 
 WEAPON_TYPES = {1: "Sword", 10: "Catalyst", 11: "Claymore", 12: "Bow", 13: "Polearm"}
+CALC_DELAY_S = 1  # between calculator syncs of several characters, like clicking through the web page
 
 
 def build(app):
@@ -22,6 +26,7 @@ def build(app):
     chars_body = ft.Column([chars_locked], spacing=16, horizontal_alignment=STRETCH)
     characters_view = ft.Column([page_head(CHARACTERS), chars_body], spacing=16, horizontal_alignment=STRETCH)
     builds = {}  # character id -> (detail, property_map); fetched on first open, one call per character
+    calcs = {}  # character id -> calculator sync (talent group ids, weapon); fetched on the first Calculate
 
     roster = {"chars": [], "role": None, "release": {}, "wiki": {}}  # last loaded list, re-filtered without another request
     chars_count = muted("")
@@ -133,7 +138,133 @@ def build(app):
             tooltip=None if mobile else f"{c['name']} · {c['element']} · {w['name']}",
             on_click=lambda e: open_build(c, role), col=tile_col)
 
-    def build_view(c, d, pm, roles, weapon_rarity):
+    def compute(role, goals):
+        """HoYoLAB calculator for [(character, (level, talents, weapon))]: (materials, bag synced?).
+        Each character's talent/weapon ids are synced once per session, spaced like clicks on the web page."""
+        cookies, items = vault.load(), []
+        for i, (c, (lv, talent, weapon)) in enumerate(goals):
+            if c["id"] not in calcs:
+                if i:
+                    time.sleep(CALC_DELAY_S)
+                calcs[c["id"]] = hoyolab.calc_detail(cookies, role, c["id"])
+            items.append(hoyolab.calc_item(c["id"], c["level"], calcs[c["id"]], lv, talent, weapon))
+        res = hoyolab.calc_compute(cookies, items)
+        mats = res.get("overall_consume") or []
+        wiki.cache_images(m["icon"] for m in mats)
+        return mats, res.get("has_user_info")  # bag synced on HoYoLAB
+
+    def mats_grid(mats, owned):
+        if not mats:
+            return muted("Already at these targets.")
+        return ft.ResponsiveRow([panel_tile(ft.Row([
+            portrait(m["icon"], m.get("level"), 40, ft.Icons.INVENTORY_2_ROUNDED),
+            ft.Column([ft.Text(m["name"], size=13, weight=ft.FontWeight.W_600, max_lines=2,
+                               overflow=ft.TextOverflow.ELLIPSIS),
+                       ft.Row([muted(f"× {m['num']:,}", size=12),
+                               pill(f"lack {m['lack_num']:,}", GOLD) if m.get("lack_num") else
+                               ft.Icon(ft.Icons.CHECK_CIRCLE_ROUNDED, size=16, color=WON)][:1 + bool(owned)],
+                              spacing=6)],
+                      spacing=2, expand=True)], spacing=10), padding=10,
+            col={"xs": 12, "sm": 6, "md": 4}) for m in mats], spacing=8, run_spacing=8)
+
+    # Farming planner: goals per game account in meta "planner:<uid>" = {character id: {name, icon, rarity,
+    # targets: [level, talents, weapon]}}; the Dashboard's domains card reads the names.
+    plan_key = lambda role: f"planner:{role['game_uid']}"
+    load_plan = lambda role: db.get_json(db.connect(), plan_key(role), {})
+
+    def materials_view(c, role):
+        """Materials tab: targets for level, talents and weapon; Calculate asks HoYoLAB's calculator what
+        they cost and what the account still lacks. The targets can go on the farming planner."""
+        goal = load_plan(role).get(str(c["id"]), {}).get("targets", (90, 9, 90))
+        drop = lambda name, values, value: ft.Dropdown(
+            label=name, value=str(value), width=110, dense=True, filled=True,
+            options=[ft.DropdownOption(str(v)) for v in values])
+        level_in = drop("Level", (40, 50, 60, 70, 80, 90), goal[0])
+        talent_in = drop("Talents", range(1, 11), goal[1])
+        weapon_in = drop("Weapon", (40, 50, 60, 70, 80, 90), goal[2])
+        targets = lambda: (int(level_in.value), int(talent_in.value), int(weapon_in.value))
+        result = ft.Column(spacing=8, horizontal_alignment=STRETCH)
+        plan_btn = ft.OutlinedButton()
+
+        def show_plan_btn():
+            on = str(c["id"]) in load_plan(role)
+            plan_btn.content = "Update planner" if on else "Add to planner"
+            plan_btn.icon = ft.Icons.PLAYLIST_ADD_CHECK_ROUNDED if on else ft.Icons.PLAYLIST_ADD_ROUNDED
+
+        def add_to_plan(e):
+            plan = load_plan(role)
+            plan[str(c["id"])] = {"name": c["name"], "icon": c["icon"], "rarity": c["rarity"], "targets": targets()}
+            db.set_json(db.connect(), plan_key(role), plan)
+            show_plan_btn()
+            show_planner()
+            page.update()
+            app.toast(f"{c['name']} is on the farming planner (top of the Characters tab).")
+
+        plan_btn.on_click = add_to_plan
+        show_plan_btn()
+
+        def calculate():
+            result.controls = [skeleton(3, height=56)]
+            result.update()
+            try:
+                result.controls = [mats_grid(*compute(role, [(c, targets())]))]
+            except Exception as ex:
+                result.controls = [muted(f"Could not calculate: {ex}")]
+            result.update()
+
+        return [ft.Row([level_in, talent_in, weapon_in,
+                        ft.FilledButton("Calculate", icon=ft.Icons.CALCULATE_ROUNDED,
+                                        on_click=lambda e: page.run_thread(calculate)), plan_btn],
+                       wrap=True, spacing=10, run_spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                muted("From HoYoLAB's Enhancement Progression Calculator. Sync your bag there once to see what "
+                      "you still lack.", size=12),
+                result]
+
+    planner_chips = ft.Row(wrap=True, spacing=8, run_spacing=8)
+    planner_result = ft.Column(spacing=8, horizontal_alignment=STRETCH)
+    planner_calc = ft.FilledButton("Calculate all", icon=ft.Icons.CALCULATE_ROUNDED)
+    planner_card = card(muted("Total materials for several characters. Open a character, set targets on its "
+                              "Materials tab and press Add to planner. Today's domains on the Dashboard put them first.",
+                              size=12),
+                        planner_chips, ft.Row([planner_calc]), planner_result, title="Farming planner")
+
+    def show_planner():
+        role = roster["role"]
+        plan = load_plan(role) if role else {}
+
+        def remove(cid):
+            def handler(e):
+                p = load_plan(role)
+                p.pop(cid, None)
+                db.set_json(db.connect(), plan_key(role), p)
+                planner_result.controls = []
+                show_planner()
+                planner_card.update()
+            return handler
+
+        planner_chips.controls = [ft.Container(ft.Row([
+            portrait(g["icon"], g["rarity"], 32),
+            ft.Column([ft.Text(g["name"], size=13, weight=ft.FontWeight.W_600),
+                       muted("Lv {} · talents {} · weapon {}".format(*g["targets"]), size=11)], spacing=0),
+            ft.IconButton(ft.Icons.CLOSE_ROUNDED, icon_size=16, tooltip="Remove", on_click=remove(cid)),
+        ], spacing=8, tight=True), padding=ft.Padding.only(left=6, right=2, top=4, bottom=4),
+            border_radius=STYLE["radius"] - 6, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH) for cid, g in plan.items()]
+        planner_calc.visible = bool(plan)
+
+    def calculate_plan():
+        role, owned = roster["role"], {str(c["id"]): c for c in roster["chars"]}
+        goals = [(owned[cid], tuple(g["targets"])) for cid, g in load_plan(role).items() if cid in owned]
+        planner_result.controls = [skeleton(3, height=56)]
+        planner_result.update()
+        try:
+            planner_result.controls = [mats_grid(*compute(role, goals))]
+        except Exception as ex:
+            planner_result.controls = [muted(f"Could not calculate: {ex}")]
+        planner_result.update()
+
+    planner_calc.on_click = lambda e: page.run_thread(calculate_plan)
+
+    def build_view(c, d, pm, roles, weapon_rarity, role):
         """Tabs: Overview (stats, weapon), Artifacts, Talents (talents, constellations), Build guide."""
         name = lambda p: pm.get(str(p["property_type"]), {}).get("name", "?").replace(" ", " ")
         color = ELEMENT_COLORS.get(c["element"], GOLD)
@@ -194,6 +325,7 @@ def build(app):
                            else muted("No artifacts equipped.")]),
             ("Talents", talents),
             ("Constellations", cons),
+            ("Materials", materials_view(c, role)),
         ]
         if roles:
             tabs.append(("Build guide", guide_view(roles, weapon_rarity)))
@@ -223,7 +355,7 @@ def build(app):
                     rarity = {w["name"]: wiki.rarity(w) for w in wiki.entries(conn, "Weapons")}
                 except Exception:
                     pass  # offline with no cached guides: the build still shows
-                body.content, body.padding = build_view(c, *builds[c["id"]], roles, rarity), 0
+                body.content, body.padding = build_view(c, *builds[c["id"]], roles, rarity, role), 0
             except Exception as ex:
                 body.content = muted(f"Could not load build: {ex}")
             body.update()
@@ -253,7 +385,9 @@ def build(app):
             d.options = [ft.DropdownOption("All")] + [ft.DropdownOption(v) for v in wiki.filters(
                 [{"filters": f} for f in info.values()]).get(key, [])]
         roster.update(chars=chars, role=role, release=release, wiki=info)
-        chars_body.controls = [chars_filters, chars_count, chars_grid]
+        planner_result.controls = []
+        show_planner()
+        chars_body.controls = [planner_card, chars_filters, chars_count, chars_grid]
         show_chars()
         # Roster shows right away (icons not cached yet load from the web); keep them for next time.
         page.run_thread(wiki.cache_images, [u for c in chars for u in (c["icon"], c["weapon"]["icon"])])

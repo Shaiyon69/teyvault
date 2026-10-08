@@ -24,3 +24,16 @@ class TestLogin(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCalculator(unittest.TestCase):
+    def test_item_raises_only_the_three_talents_and_never_lowers(self):
+        detail = {"weapon": {"id": 11501, "level_current": 90, "max_level": 90},
+                  "skill_list": [{"id": 1, "group_id": 101, "level_current": 6, "max_level": 10},
+                                 {"id": 2, "group_id": 102, "level_current": 10, "max_level": 10},
+                                 {"id": 3, "group_id": 103, "level_current": 1, "max_level": 10},
+                                 {"id": 4, "group_id": 104, "level_current": 0, "max_level": 1}]}
+        item = hoyolab.calc_item(10000002, 80, detail, 90, 9, 90)
+        self.assertEqual(item["avatar_level_target"], 90)
+        self.assertEqual([(t["id"], t["level_target"]) for t in item["skill_list"]], [(101, 9), (102, 10), (103, 9)])
+        self.assertEqual(item["weapon"]["level_target"], 90)

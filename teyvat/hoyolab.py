@@ -26,6 +26,7 @@ DAILY_NOTE_URL = "https://bbs-api-os.hoyolab.com/game_record/genshin/api/dailyNo
 ABYSS_URL = "https://bbs-api-os.hoyolab.com/game_record/genshin/api/spiralAbyss"
 THEATER_URL = "https://bbs-api-os.hoyolab.com/game_record/genshin/api/role_combat"
 ONSLAUGHT_URL = "https://bbs-api-os.hoyolab.com/game_record/genshin/api/hard_challenge"
+CALC_URL = "https://sg-public-api.hoyolab.com/event/e20200928calculate/"  # Enhancement Progression Calculator
 # Battle Chronicle wants the "DS" header the hoyolab.com web page signs its requests with.
 DS_SALT = "6s25p5ox5y14umn1p61aqyyvbvvl3lrt"
 REDEEM_URL = "https://sg-hk4e-api.hoyoverse.com/common/apicdkey/api/webExchangeCdkeyHyl"
@@ -205,6 +206,33 @@ def theater(cookies, role) -> dict:
 def onslaught(cookies, role) -> dict:
     """Stygian Onslaught: recent seasons with difficulty, clear times and teams."""
     return _record(ONSLAUGHT_URL, cookies, role, params={"need_detail": "true"})
+
+
+def calc_detail(cookies, role, avatar_id) -> dict:
+    """Calculator sync of one owned character: weapon (id, level) and skill_list (ids and current levels)."""
+    return request(CALC_URL + "v1/sync/avatar/detail", cookies=cookies, referer="https://act.hoyolab.com/", params={
+        "avatar_id": avatar_id, "uid": role["game_uid"], "region": role["region"], "lang": "en-us"})["data"]
+
+
+def calc_item(char_id, level, detail, target_level, target_talent, target_weapon) -> dict:
+    """One batch_compute item: the character, its active talents and its weapon raised to the targets."""
+    w = detail["weapon"]
+    return {
+        "avatar_id": char_id, "avatar_level_current": level, "avatar_level_target": max(level, target_level),
+        # passives (and sprints) have max_level 1; the calculator takes a talent's group_id, not its id
+        # NOTE: assumes the first three levelable skills are attack/skill/burst, check if a character's are off
+        "skill_list": [{"id": t["group_id"], "level_current": t["level_current"],
+                        "level_target": max(t["level_current"], target_talent)}
+                       for t in detail["skill_list"] if t["max_level"] > 1][:3],
+        "weapon": {"id": w["id"], "level_current": w["level_current"],
+                   "level_target": max(w["level_current"], min(target_weapon, w.get("max_level", 90)))},
+    }
+
+
+def calc_compute(cookies, items) -> dict:
+    """Materials the items need: overall_consume [{name, icon, num, lack_num, level}, ...]."""
+    return request(CALC_URL + "v3/batch_compute", cookies=cookies, referer="https://act.hoyolab.com/",
+                   body={"items": items, "lang": "en-us"})["data"]
 
 
 def redeem(cookies, codes, *, uid=None, sleep=time.sleep) -> list[tuple[str, str]]:
