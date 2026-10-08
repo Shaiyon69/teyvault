@@ -1,11 +1,13 @@
-"""World tab: exploration per region and account totals from Battle Chronicle, plus the live map links."""
+"""World tab: exploration per region and account totals from Battle Chronicle, endgame records, live map links."""
+import datetime
+
 import flet as ft
 
 from teyvat import hoyolab, vault, wiki
 from teyvat.gui import theme
 from teyvat.gui.app import WORLD
 from teyvat.gui.theme import STRETCH, STYLE
-from teyvat.gui.widgets import bar, card, muted, skeleton, tile
+from teyvat.gui.widgets import bar, card, muted, panel_tile, pill, portrait, skeleton, tile
 
 # Battle Chronicle's own icon for these 404s or is empty, so the HoYoLAB wiki's emblem is used instead.
 WIKI_STATIC = "https://act-webstatic.hoyoverse.com/event-static-hoyowiki-admin/"
@@ -18,8 +20,24 @@ REGION_ICONS = {
     "Temple of Space": WIKI_STATIC + "2026/04/03/f074ef5535687601974bdcc973cd0a20_2383623952857545804.png",
 }
 region_icon = lambda w: REGION_ICONS.get(w["name"]) or w.get("icon") or w.get("inner_icon")
+THEATER_DIFFICULTY = {1: "Easy", 2: "Normal", 3: "Hard", 4: "Visionary"}
+ABYSS_RANKS = (("reveal_rank", "Most used"), ("defeat_rank", "Most defeats"), ("damage_rank", "Strongest hit"),
+               ("take_damage_rank", "Most damage taken"))
+avatar_icon = lambda a: a.get("icon") or a.get("image") or a.get("avatar_icon")
 TEYVAT_GPS_URL = "https://www.teyvatgps.com/map"
 HOYOLAB_MAP_URL = "https://act.hoyolab.com/ys/app/interactive-map/index.html"
+
+
+def _avatars(x):
+    """Every dict with an avatar icon anywhere inside a Battle Chronicle response (to prefetch the portraits)."""
+    if isinstance(x, dict):
+        if avatar_icon(x) and ("avatar_id" in x or "id" in x):
+            yield x
+        for v in x.values():
+            yield from _avatars(v)
+    elif isinstance(x, list):
+        for v in x:
+            yield from _avatars(v)
 
 
 def build(app):
@@ -153,13 +171,122 @@ def build(app):
             ft.Row([ft.Text("MAP EXPLORATION", size=20 if phone else 24, font_family=STYLE["heading_font"]),
                     muted(role["nickname"])], spacing=12, vertical_alignment=ft.CrossAxisAlignment.CENTER),
             region_grid,
+            endgame_card,
         ]
         page.update()
+        load_endgame(role)
 
+
+    # Endgame: one mode at a time, each fetched the first time it is shown (Abyss right after the world
+    # stats, in the same worker thread), and kept for the session per UID.
+    endgame = {}  # (uid, mode) -> response
+    endgame_body = ft.Column(spacing=12, horizontal_alignment=STRETCH)
+    endgame_pick = ft.SegmentedButton(
+        selected=["abyss"], show_selected_icon=False,
+        on_change=lambda e: page.run_thread(load_endgame, app.active_role()),
+        segments=[ft.Segment("abyss", label="Spiral Abyss"), ft.Segment("theater", label="Theater"),
+                  ft.Segment("onslaught", label="Onslaught")])
+    endgame_card = card(ft.Row([endgame_pick], scroll=ft.ScrollMode.HIDDEN), endgame_body, title="Endgame")
+
+    def team(avatars, size=44):
+        return ft.Row([ft.Container(portrait(avatar_icon(a), a.get("rarity"), size),
+                                    tooltip=f"Lv {a.get('level', '?')}") for a in avatars],
+                      spacing=6, wrap=True, run_spacing=6)
+
+    def season(sched):
+        start = sched.get("start_time")
+        return datetime.datetime.fromtimestamp(int(start)).strftime("%B %Y") if start else ""
+
+    def stat_row(*stats):
+        return ft.ResponsiveRow([tile(n, str(v), color=c, col={"xs": 6, "md": 3}) for n, v, c in stats],
+                                spacing=8, run_spacing=8)
+
+    def abyss_view(d):
+        ranks = [ft.Row([portrait(r[0]["avatar_icon"], r[0].get("rarity"), 40),
+                         ft.Column([muted(name, size=12),
+                                    ft.Text(f"{r[0]['value']:,}", size=15, weight=ft.FontWeight.W_600)], spacing=0)],
+                        spacing=10, col={"xs": 12, "sm": 6, "md": 3})
+                 for key, name in ABYSS_RANKS if (r := d.get(key))]
+        floors = []
+        for f in sorted(d["floors"], key=lambda f: -f["index"]):
+            rows = [ft.Row([ft.Text(f"Floor {f['index']}", size=15, weight=ft.FontWeight.W_600, expand=True),
+                            pill(f"{f['star']}/{f['max_star']} ★", GOLD)])]
+            for lv in f["levels"]:
+                rows.append(ft.Row([muted(f"Chamber {lv['index']}", size=13, width=90),
+                                    ft.Text("★" * lv["star"], color=GOLD, width=40),
+                                    *[team(b["avatars"], 36) for b in lv.get("battles", [])]],
+                                   spacing=12, wrap=True, vertical_alignment=ft.CrossAxisAlignment.CENTER))
+            floors.append(panel_tile(*rows, padding=14))
+        return [stat_row(("Stars", d["total_star"], GOLD), ("Deepest", d["max_floor"], PURPLE),
+                         ("Battles", d["total_battle_times"], None), ("Wins", d["total_win_times"], WON)),
+                ft.ResponsiveRow(ranks, spacing=8, run_spacing=8), *floors]
+
+    def theater_view(d):
+        s = next((x for x in d.get("data", []) if x.get("has_data")), None)
+        if not s:
+            return [muted("No Imaginarium Theater run yet.")]
+        st = s["stat"]
+        acts = [panel_tile(ft.Row([
+            muted(f"Act {r['round_id']}", size=13, width=60),
+            ft.Icon(ft.Icons.LOCAL_FLORIST_ROUNDED, size=18, color=WON if r.get("is_get_medal") else ft.Colors.OUTLINE),
+            team(r.get("avatars", []), 36)], spacing=12, vertical_alignment=ft.CrossAxisAlignment.CENTER), padding=10)
+            for r in (s.get("detail") or {}).get("rounds_data", [])]
+        diff = st.get("difficulty_id")
+        return [muted(season(s.get("schedule", {})), size=13),
+                stat_row(("Difficulty", THEATER_DIFFICULTY.get(diff, diff or "-"), PURPLE),
+                         ("Act reached", st.get("max_round_id", "-"), GOLD), ("Stars", st.get("medal_num", "-"), WON),
+                         ("Rentals", st.get("rent_cnt", "-"), None)), *acts]
+
+    def onslaught_view(d):
+        s = next((x for x in d.get("data", []) if (x.get("single") or {}).get("has_data")), None)
+        if not s:
+            return [muted("No Stygian Onslaught run yet.")]
+        single = s["single"]
+        best = single.get("best") or {}
+        fights = [panel_tile(ft.Row([ft.Text(c.get("name", ""), size=14, weight=ft.FontWeight.W_600, expand=True),
+                                     pill(f"{c.get('second', '-')} s", GOLD)]),
+                             team(c.get("teams", []), 40), padding=12)
+                  for c in single.get("challenge", [])]
+        sched = s.get("schedule") or {}
+        return [muted(sched.get("name") or season(sched), size=13),
+                stat_row(("Difficulty", best.get("difficulty", "-"), PURPLE),
+                         ("Best time", f"{best.get('second', '-')} s", GOLD)),
+                *fights]
+
+    modes = {"abyss": (hoyolab.spiral_abyss, abyss_view), "theater": (hoyolab.theater, theater_view),
+             "onslaught": (hoyolab.onslaught, onslaught_view)}
+
+    def load_endgame(role):
+        """Worker thread: the picked mode, fetched once per session. An empty Abyss cycle shows the previous one."""
+        mode = endgame_pick.selected[0]
+        fetch, view = modes[mode]
+        key = (role["game_uid"], mode)
+        if key not in endgame:
+            endgame_body.controls = [skeleton(3, height=72)]
+            page.update()
+            try:
+                d = fetch(vault.load(), role)
+                if mode == "abyss" and not d.get("floors"):
+                    d = {**hoyolab.spiral_abyss(vault.load(), role, previous=True), "previous": True}
+                wiki.cache_images(avatar_icon(a) for a in _avatars(d))
+                endgame[key] = d
+            except Exception as ex:
+                endgame_body.controls = [muted(f"Could not load this record: {ex}")]
+                page.update()
+                return
+        if endgame_pick.selected[0] != mode:  # switched away while loading
+            return
+        d = endgame[key]
+        if mode == "abyss" and not d.get("floors"):
+            endgame_body.controls = [muted("No Spiral Abyss run this cycle or the last.")]
+        else:
+            endgame_body.controls = ([muted("Previous cycle", size=13)] if d.get("previous") else []) + view(d)
+        page.update()
 
     def reset():
         """Signed out: back to the sign-in prompt."""
         world_body.controls, world_stats.controls = [world_locked], []
+        endgame.clear()
 
     app.load_world, app.flow_regions, app.reset_world = load_world, flow_regions, reset
     return world_view

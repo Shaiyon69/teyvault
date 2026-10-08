@@ -23,6 +23,9 @@ RECORD_URL = "https://bbs-api-os.hoyolab.com/game_record/genshin/api/index"
 CHARACTERS_URL = "https://bbs-api-os.hoyolab.com/game_record/genshin/api/character/list"
 CHARACTER_DETAIL_URL = "https://bbs-api-os.hoyolab.com/game_record/genshin/api/character/detail"
 DAILY_NOTE_URL = "https://bbs-api-os.hoyolab.com/game_record/genshin/api/dailyNote"
+ABYSS_URL = "https://bbs-api-os.hoyolab.com/game_record/genshin/api/spiralAbyss"
+THEATER_URL = "https://bbs-api-os.hoyolab.com/game_record/genshin/api/role_combat"
+ONSLAUGHT_URL = "https://bbs-api-os.hoyolab.com/game_record/genshin/api/hard_challenge"
 # Battle Chronicle wants the "DS" header the hoyolab.com web page signs its requests with.
 DS_SALT = "6s25p5ox5y14umn1p61aqyyvbvvl3lrt"
 REDEEM_URL = "https://sg-hk4e-api.hoyoverse.com/common/apicdkey/api/webExchangeCdkeyHyl"
@@ -156,9 +159,9 @@ def ds_header() -> str:
     return f"{t},{r},{hashlib.md5(f'salt={DS_SALT}&t={t}&r={r}'.encode()).hexdigest()}"
 
 
-def _record(url, cookies, role, body=None) -> dict:
+def _record(url, cookies, role, body=None, params=None) -> dict:
     """Battle Chronicle call, signed and headed like the hoyolab.com page sends it. Read-only."""
-    params = None if body else {"server": role["region"], "role_id": role["game_uid"]}
+    params = None if body else {"server": role["region"], "role_id": role["game_uid"], **(params or {})}
     if body:
         body = {"server": role["region"], "role_id": role["game_uid"], **body}
     return request(url, cookies=cookies, referer="https://act.hoyolab.com/", params=params, body=body,
@@ -187,6 +190,21 @@ def character_detail(cookies, role, character_id) -> tuple[dict, dict]:
     property_map that names the numeric property_type ids. One id per call, like the web page."""
     data = _record(CHARACTER_DETAIL_URL, cookies, role, {"character_ids": [character_id]})
     return data["list"][0], data["property_map"]
+
+
+def spiral_abyss(cookies, role, previous=False) -> dict:
+    """Spiral Abyss: this cycle's (or the previous one's) stars, floors, teams and top ranks."""
+    return _record(ABYSS_URL, cookies, role, params={"schedule_type": 2 if previous else 1})
+
+
+def theater(cookies, role) -> dict:
+    """Imaginarium Theater: recent seasons with acts, flowers and the cast used."""
+    return _record(THEATER_URL, cookies, role, params={"need_detail": "true"})
+
+
+def onslaught(cookies, role) -> dict:
+    """Stygian Onslaught: recent seasons with difficulty, clear times and teams."""
+    return _record(ONSLAUGHT_URL, cookies, role, params={"need_detail": "true"})
 
 
 def redeem(cookies, codes, *, uid=None, sleep=time.sleep) -> list[tuple[str, str]]:
