@@ -1,7 +1,7 @@
 """Wiki tab: HoYoLAB's wiki catalogue and paimon.moe achievements, with pages that open in the app."""
 import flet as ft
 
-from teyvat import db, wiki
+from teyvat import db, weblogin, wiki
 from teyvat.gui import theme
 from teyvat.gui.app import WIKI
 from teyvat.gui.theme import ELEMENT_COLORS, STRETCH, STYLE
@@ -19,8 +19,9 @@ def build(app):
     WIKI_CATS = {"Characters": ft.Icons.PEOPLE_ROUNDED, "Weapons": ft.Icons.HARDWARE_ROUNDED,
                  "Artifacts": ft.Icons.DIAMOND_ROUNDED, "Enemies": ft.Icons.PEST_CONTROL_ROUNDED,
                  "Collectibles": ft.Icons.COLLECTIONS_ROUNDED, "Achievements": ft.Icons.EMOJI_EVENTS_ROUNDED}
-    # NOTE: tiles rendered a page at a time as you scroll (fewer on phones); switch to a virtualized GridView if it lags
-    WIKI_PAGE = 30 if phone else 60
+    # NOTE: tiles rendered a page at a time as you scroll (fewer on phones); switch to a virtualized GridView if it lags.
+    # A page must overflow the window, or no scroll event ever loads the next: 144 = 12 rows even at 12 per row.
+    WIKI_PAGE = 30 if phone else 144
     wiki_state = {"cat": "Characters", "items": [], "limit": WIKI_PAGE, "done": set()}
     wiki_search = search_field("Search", lambda e: show_wiki(reset=True))
     wiki_filters = ft.Row()
@@ -82,6 +83,10 @@ def build(app):
                 elif text:  # set bonus, lore
                     blocks.append(panel_tile(ft.Text(name, size=14, weight=ft.FontWeight.W_600, visible=bool(name)),
                                              muted(text, size=13, selectable=True), padding=14))
+            if sec["title"] == wiki.WHERE and d.get("maps"):
+                blocks.append(ft.Row([ft.OutlinedButton(label, icon=ft.Icons.MAP_ROUNDED,
+                                                        on_click=lambda ev, l=label, u=url: show_map(l, u))
+                                      for label, url in d["maps"]], wrap=True, spacing=8, run_spacing=8))
             tabs.append((sec["title"], blocks))
         if d["desc"]:
             blurb = muted(d["desc"], italic=True, selectable=True)
@@ -89,6 +94,17 @@ def build(app):
         if roles:
             tabs.append(("Build guide", guide_view(roles, weapon_rarity)))
         return tab_view(tabs or [("Overview", [muted("This page has no details yet.")])], selected)
+
+    def show_map(label, url):
+        """Interactive map in a WebView: a dialog on phones, a pywebview window on desktop (no Flet WebView there)."""
+        if not mobile:
+            return weblogin.show(f"{label} - interactive map", url)
+        import flet_webview
+        page.show_dialog(ft.AlertDialog(
+            title=ft.Text(label), inset_padding=ft.Padding.all(12),
+            content=ft.Container(flet_webview.WebView(url=url, expand=True),
+                                 width=(page.width or 360) - 72, height=(page.height or 640) - 200),
+            actions=[ft.TextButton("Close", on_click=lambda e: page.pop_dialog())]))
 
     def open_entry(e):
         """Wiki tile -> its page inside the app (fetched once, then read from the local cache)."""
@@ -149,7 +165,9 @@ def build(app):
         return ft.Container(ft.Row([
             ft.Checkbox(value=a["id"] in wiki_state["done"], on_change=toggle),
             ft.Column([ft.Text(a["name"], size=14, weight=ft.FontWeight.W_600),
-                       muted(a["desc"], size=12)], spacing=2, expand=True),
+                       muted(a["desc"], size=12),
+                       muted(a.get("where", ""), size=11, italic=True, visible=bool(a.get("where")))],
+                      spacing=2, expand=True),
             pill(f"{a['reward']} primos", GOLD), pill(f"v{a['ver']}") if a["ver"] else ft.Container(),
         ], spacing=10), padding=ft.Padding.symmetric(horizontal=10, vertical=6), border_radius=12,
             bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH)
@@ -162,7 +180,7 @@ def build(app):
         picks = {d.data: d.value for d in wiki_filters.controls if d.data and d.value != "All"}
         if cat == "Achievements":
             status = picks.pop("status", None)
-            shown = [a for a in items if (q in a["name"].lower() or q in a["desc"].lower())
+            shown = [a for a in items if any(q in a.get(k, "").lower() for k in ("name", "desc", "where"))
                      and picks.get("category") in (None, a["category"])
                      and (status is None or (a["id"] in wiki_state["done"]) == (status == "Done"))]
             done = [a for a in items if a["id"] in wiki_state["done"]]

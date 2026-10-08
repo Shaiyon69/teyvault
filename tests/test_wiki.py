@@ -35,12 +35,17 @@ class TestWiki(unittest.TestCase):
             {"name": "Ascend", "components": [comp("ascension", {"list": [{"key": "Lv.90", "combatList": [
                 {"key": "", "values": ["ATK before Ascension", "ATK after Ascension", "CRIT Rate"]},
                 {"key": "", "values": ["510", "-", "27.6%"]}]}]})]},
+            {"name": "Loot", "components": [comp("drop_material", {"list": [
+                '$[{"ep_id":1,"name":"Mora","icon":"m.png"}]$', '$[{"ep_id":2,"nickname":"x"}]$']})]},
+            {"name": "Properties", "components": [comp("customize", {"data": '<p><span>Teyvat: </span>'
+                                                                       '<custom-map url="https://map/2"></custom-map></p>'})]},
             {"name": "Gallery", "components": [comp("gallery_character", {"pic": "splash.png", "list": []})]},
             {"name": "Voice-Over", "components": [comp("voice", {"list": []})]}]}
         e = wiki.slim_entry(page)
         self.assertEqual((e["desc"], e["image"]), ("A bow\n'nice'", "splash.png"))
         self.assertEqual(e["sections"], [
-            {"title": "Attributes", "rows": [["Region", "Snezhnaya", ""], ["Namecard", "Card", ""]]},
+            {"title": "Attributes", "rows": [["Namecard", "Card", ""]]},
+            {"title": "Where to find", "rows": [["Region", "Snezhnaya", ""], ["Drops Mora", "", "m.png"]]},
             {"title": "Stats at Lv.90", "rows": [["ATK", "510", ""], ["CRIT Rate", "27.6%", ""]]}])
 
     def test_flatten_tiered_achievements(self):
@@ -50,6 +55,8 @@ class TestWiki(unittest.TestCase):
         flat = wiki.flatten_achievements(raw)
         self.assertEqual([a["id"] for a in flat], [1, 2, 3])
         self.assertEqual({a["category"] for a in flat}, {"Wonders"})
+        self.assertEqual(wiki.achievement_where({"quest": {"name": ["A", "B"]}, "commissions": "liyue"}), "Quest: A, B")
+        self.assertEqual(wiki.achievement_where({"commissions": "liyue"}), "Liyue commission")
 
     def test_parse_timeline_and_server_times(self):
         js = """export const eventsData = [

@@ -483,7 +483,7 @@ def guide_view(roles, weapon_rarity=None):
             ft.ResponsiveRow(mains, spacing=8, run_spacing=8),
             label("Sub stats"), priority(g["subs"]),
             label("Talent priority"), priority(g["talents"], GOLD),
-        ] + ([label("Notes"), panel_tile(muted(g["note"], size=13, selectable=True))] if g["note"] else [])
+        ] + ([label("Notes"), panel_tile(muted(g["note"], size=13, selectable=True))] if g.get("note") else [])
 
     show(0)
     if len(roles) == 1:

@@ -34,8 +34,19 @@ def sign_in() -> dict:
     return cookies
 
 
+def show(title, url):
+    """A plain pywebview window on `url` (the wiki's interactive maps). Fire and forget."""
+    cmd = [sys.executable, "--weblogin"] if getattr(sys, "frozen", False) else [sys.executable, "-m", "teyvat.weblogin"]
+    subprocess.Popen(cmd + ["--show", title, url], creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+
 def _main():
     import webview
+
+    if "--show" in sys.argv:
+        title, url = sys.argv[sys.argv.index("--show") + 1:][:2]
+        webview.create_window(title, url, width=1200, height=800)
+        return webview.start()
 
     found = {}
     closed = threading.Event()

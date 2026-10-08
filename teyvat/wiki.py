@@ -171,11 +171,18 @@ def _value(v) -> str:
     return text(v)
 
 
+WHERE = "Where to find"
+WHERE_KEYS = ("Source", "Region")  # baseInfo lines that say where an entry is obtained or met
+
+
 def slim_entry(p) -> dict:
-    """One wiki page -> {name, icon, image, desc, sections: [{title, rows: [[name, text, icon]]}]}.
-    Keeps the readable modules (attributes, set bonus, talents, constellations, stats, lore); skips
-    voice lines, videos and material lists."""
-    out = {"name": p["name"], "icon": p["icon_url"], "image": "", "desc": text(p["desc"]), "sections": []}
+    """One wiki page -> {name, icon, image, desc, sections: [{title, rows: [[name, text, icon]]}],
+    maps: [[label, interactive map url]]}. Keeps the readable modules (attributes, set bonus, talents,
+    constellations, stats, lore, loot); skips voice lines, videos and material lists. Source/Region
+    lines, enemy loot and map links go in a "Where to find" section."""
+    out = {"name": p["name"], "icon": p["icon_url"], "image": "", "desc": text(p["desc"]), "sections": [],
+           "maps": []}
+    where = []
     for mod in p["modules"]:
         for comp in mod["components"]:
             d, cid, title = json.loads(comp["data"] or "null"), comp["component_id"], mod["name"]
@@ -183,7 +190,21 @@ def slim_entry(p) -> dict:
                 continue
             rows = []
             if cid == "baseInfo":
-                rows = [[x["key"], ", ".join(_value(v) for v in x["value"]), ""] for x in d["list"] if x["key"] != "Name"]
+                for x in d["list"]:
+                    v = ", ".join(_value(v) for v in x["value"])
+                    if x["key"] in WHERE_KEYS:
+                        where += [[x["key"], v, ""]] if v.strip("- ") else []
+                    elif x["key"] != "Name":
+                        rows.append([x["key"], v, ""])
+            elif cid == "drop_material":  # enemy loot; untranslated entries only carry a Chinese nickname
+                where += [["Drops " + r["name"], "", r.get("icon", "")]
+                          for v in d["list"] for r in json.loads(v[1:-1]) if r.get("name")]
+            elif cid == "customize":  # enemy "Location" block: one interactive map link per map
+                h = d.get("data") or ""
+                for m in re.finditer(r'<custom-map url="([^"]+)"', h):
+                    label = ([t.strip(" :") for t in re.findall(r">([^<>]*)", h[:m.start()]) if t.strip(" :")]
+                             or ["Map"])[-1]  # the text just before the tag: "Teyvat: <custom-map ...>"
+                    out["maps"].append([html.unescape(label), m.group(1)])  # raw "&center" is no entity
             elif cid == "reliquary_set_effect":
                 rows = [[k, d[f], ""] for k, f in (("1-Piece", "single_set_effect"), ("2-Piece", "two_set_effect"),
                                                    ("4-Piece", "four_set_effect")) if d.get(f)]
@@ -214,6 +235,8 @@ def slim_entry(p) -> dict:
                     last["rows"] += rows
                 else:
                     out["sections"].append({"title": title, "rows": rows})
+    if where or out["maps"]:
+        out["sections"].insert(min(1, len(out["sections"])), {"title": WHERE, "rows": where})
     return out
 
 
@@ -222,7 +245,9 @@ def entry(conn, entry_id, refresh=False) -> dict:
     fetch = lambda: slim_entry(request(ENTRY_API_URL, params={"entry_page_id": entry_id},
                                        referer="https://wiki.hoyolab.com/",
                                        headers={"x-rpc-language": "en-us"})["data"]["page"])
-    return _cached(conn, f"wiki:entry:{entry_id}", fetch, refresh, days=7)
+    d = _cached(conn, f"wiki:entry:{entry_id}", fetch, refresh, days=7)
+    # pages cached before "Where to find" existed lack maps/loot: fetch those once more
+    return d if "maps" in d else _cached(conn, f"wiki:entry:{entry_id}", fetch, True, days=7)
 
 
 def prefetch_entries(conn, ids, sleep=time.sleep) -> list[str]:
@@ -241,6 +266,13 @@ def prefetch_entries(conn, ids, sleep=time.sleep) -> list[str]:
     return urls
 
 
+def achievement_where(a) -> str:
+    """Where a paimon.moe achievement is earned: its quests, or the region of its commission."""
+    if a.get("quest"):
+        return "Quest: " + ", ".join(a["quest"]["name"])
+    return f"{a['commissions'].title()} commission" if a.get("commissions") else ""
+
+
 def flatten_achievements(raw) -> list[dict]:
     """paimon.moe groups tiered achievements in a nested list; flatten them, keeping the category."""
     out = []
@@ -248,7 +280,8 @@ def flatten_achievements(raw) -> list[dict]:
         for a in cat["achievements"]:
             for x in a if isinstance(a, list) else [a]:
                 out.append({"id": x["id"], "name": x["name"], "desc": x.get("desc", ""),
-                            "reward": x.get("reward", 0), "ver": x.get("ver", ""), "category": cat["name"]})
+                            "reward": x.get("reward", 0), "ver": x.get("ver", ""), "category": cat["name"],
+                            "where": achievement_where(x)})
     return out
 
 
