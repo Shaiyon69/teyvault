@@ -33,6 +33,8 @@ Teyvault reads your wish link from the game's cache, pages your whole history an
 
 - Pity for every banner, including the second character banner
 - 50/50 record, guarantee status and average 5★ pity
+- Pull planner: your odds of the featured 5★ from your primogems and fates
+- Rerun tracker: how long each limited 5★ has waited since their last banner
 - UIGF v2–v4 and Excel import/export, paimon.moe sheets too
 
 </td>
@@ -57,6 +59,7 @@ Teyvault reads your wish link from the game's cache, pages your whole history an
 Sign in once and Teyvault claims your HoYoLAB daily reward when it opens, with the month's calendar and the real reward icons.
 
 - Automatic check-in, which you can turn off in Settings
+- On Windows, an hourly background task checks in even when Teyvault is closed
 - One claim a day, never more
 
 </td>
@@ -67,6 +70,8 @@ Sign in once and Teyvault claims your HoYoLAB daily reward when it opens, with t
 ### Redeem codes without the game
 
 Paste one code or a whole livestream's worth. Teyvault redeems them to your account one at a time, spaced out the way the official page requires.
+
+New codes are picked up for you: Teyvault checks the community [hoyo-codes](https://github.com/seriaati/hoyo-codes) list and redeems each one it hasn't tried yet. You can turn this off in Settings.
 
 </td>
 <td>
@@ -97,6 +102,11 @@ A timeline of current and upcoming events in your server's time, plus the banner
 ### Your account at a glance
 
 Builds, exploration progress and an in-app wiki, with Prydwen tier ratings to sort by.
+
+- Resin, commissions, expeditions, weekly boss discounts and the Parametric Transformer, with reset countdowns
+- Alerts when resin is nearly full, expeditions are back or realm currency is full (Windows notifications on PC)
+- Traveler's Diary: this month's primogem and mora income by source
+- Farming planner: total materials for several characters, and what you can farm for them today
 
 - Weapons, artifacts (with Crit Value) and talents for every character
 - Exploration and reputation for every region
@@ -138,7 +148,7 @@ Teyvault only does what the official HoYoLAB pages do, at the same pace.
 | | |
 |---|---|
 | **Login in your OS keyring** | Your HoYoLAB cookies go in Windows Credential Manager, or the app's private storage on mobile. Never in the database, never sent anywhere but HoYoLAB. |
-| **Official endpoints only** | Only the requests hoyolab.com and the in-game wish page make. No reading game memory, no injection. |
+| **Official endpoints only** | Only the requests hoyolab.com and the in-game wish page make. No reading game memory, no injection. The one other source is the public hoyo-codes list, which gets no account data. |
 | **Polite by design** | Requests go one at a time and spaced out. One check-in a day, with a cooldown between codes. |
 | **Local first** | Your wish history stays in a database on your device. No account, no server, no tracking. |
 
