@@ -3,7 +3,7 @@ import getpass
 import json
 import sys
 
-from teyvat import db, hoyolab, vault, wish
+from teyvat import background, db, hoyolab, vault, wish
 
 
 def cmd_login(args):
@@ -30,6 +30,19 @@ def cmd_checkin(args):
 def cmd_redeem(args):
     for code, result in hoyolab.redeem(vault.load(), args.codes, uid=args.uid):
         print(f"{code}: {result}")
+
+
+def cmd_daily(args):
+    news, errors = background.run_daily(db.connect())
+    for line in news + errors:
+        print(line)
+    if args.notify and news:
+        background.notify("Teyvault", "\n".join(news))
+
+
+def cmd_schedule(args):
+    background.schedule(args.state == "on")
+    print("Hourly background task " + ("added." if args.state == "on" else "removed."))
 
 
 def cmd_wish_sync(args):
@@ -91,6 +104,13 @@ def main(argv=None):
     r.add_argument("codes", nargs="+")
     r.add_argument("--uid", help="game UID (default: first account on the login)")
     r.set_defaults(fn=cmd_redeem)
+
+    d = sub.add_parser("daily", help="check in, redeem new codes and check resin/expeditions (what the hourly task runs)")
+    d.add_argument("--notify", action="store_true", help="show a Windows notification with the results")
+    d.set_defaults(fn=cmd_daily)
+    sc = sub.add_parser("schedule", help="run `daily --notify` every hour with Windows Task Scheduler")
+    sc.add_argument("state", choices=("on", "off"))
+    sc.set_defaults(fn=cmd_schedule)
 
     w = sub.add_parser("wish", help="wish history").add_subparsers(required=True)
     s = w.add_parser("sync", help="fetch new wishes from the game API")

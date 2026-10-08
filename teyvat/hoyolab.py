@@ -1,5 +1,6 @@
 """HoYoLAB / HoYoverse HTTP calls. Global (os_*) servers only."""
 import base64
+import datetime
 import hashlib
 import http.cookies
 import json
@@ -30,6 +31,10 @@ CALC_URL = "https://sg-public-api.hoyolab.com/event/e20200928calculate/"  # Enha
 # Battle Chronicle wants the "DS" header the hoyolab.com web page signs its requests with.
 DS_SALT = "6s25p5ox5y14umn1p61aqyyvbvvl3lrt"
 REDEEM_URL = "https://sg-hk4e-api.hoyoverse.com/common/apicdkey/api/webExchangeCdkeyHyl"
+LEDGER_URL = "https://sg-hk4e-api.hoyolab.com/event/ysledgeros/month_info"  # Traveler's Diary
+# Community list of live codes (seriaati/hoyo-codes, scraped from official posts and fan sites).
+CODES_URL = "https://hoyo-codes.seria.moe/codes?game=genshin"
+RESIN_ALERT = 180  # alert once resin reaches this (it caps at 200)
 # Email/password login, the call account.hoyolab.com makes. Used where no login window exists (phones).
 LOGIN_URL = "https://sg-public-api.hoyolab.com/account/ma-passport/api/webLoginByPassword"
 LOGIN_HEADERS = {"x-rpc-app_id": "c9oqaq3s3gu8", "x-rpc-client_type": "4",
@@ -179,6 +184,39 @@ def daily_note(cookies, role) -> dict:
     """Real-time notes: resin, commissions, realm currency, expeditions. Fails until the player turns
     on "Real-time Notes" in the Battle Chronicle settings."""
     return _record(DAILY_NOTE_URL, cookies, role)
+
+
+def note_alerts(n) -> dict[str, str]:
+    """What in a daily_note needs the player now: {key: message}. Keys stay the same while the
+    condition holds, so callers alert once per change (background.new_alerts)."""
+    out = {}
+    if n["current_resin"] >= min(RESIN_ALERT, n["max_resin"]):
+        out["resin"] = f"Original Resin is at {n['current_resin']}/{n['max_resin']}."
+    exp = n.get("expeditions") or []
+    if exp and all(e.get("status") == "Finished" for e in exp):
+        out["expeditions"] = f"All {len(exp)} expeditions are back."
+    if n["max_home_coin"] and n["current_home_coin"] >= n["max_home_coin"]:
+        out["home_coin"] = "Realm currency in the Serenitea Pot is full."
+    t = n.get("transformer") or {}
+    if t.get("obtained") and t.get("recovery_time", {}).get("reached"):
+        out["transformer"] = "The Parametric Transformer is ready."
+    return out
+
+
+def diary(cookies, role, month=0) -> dict:
+    """Traveler's Diary: this month's (or `month`'s, one of the last three) primogem and mora income,
+    by source in month_data.group_by, and today's in day_data."""
+    return request(LEDGER_URL, cookies=cookies, referer="https://act.hoyolab.com/", params={
+        "month": month or datetime.date.today().month, "region": role["region"], "uid": role["game_uid"],
+        "lang": "en-us"})["data"]
+
+
+def active_codes() -> list[str]:
+    """Codes the community list says still work, newest first."""
+    with urllib.request.urlopen(urllib.request.Request(CODES_URL, headers={"User-Agent": UA}), timeout=20,
+                                context=SSL_CONTEXT) as resp:
+        codes = json.load(resp)["codes"]
+    return [c["code"].strip().upper() for c in sorted(codes, key=lambda c: -c["id"]) if c.get("status") == "OK"]
 
 
 def characters(cookies, role) -> list[dict]:

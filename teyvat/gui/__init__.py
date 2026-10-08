@@ -4,7 +4,7 @@ import datetime
 
 import flet as ft
 
-from teyvat import db, wiki, wish
+from teyvat import background, db, vault, wiki, wish
 from teyvat.gui import account, characters, dashboard, events, settings, wiki_tab, wishes, world
 from teyvat.gui.app import ACCOUNT, SECTIONS, SETTINGS, App
 from teyvat.gui.dashboard import PRIMOGEM_ICON
@@ -183,6 +183,19 @@ def main(page: ft.Page, start=0):
         except Exception as ex:
             toast(f"Daily check-in failed: {ex}")
 
+    def auto_redeem():
+        """Live codes from the community list this account hasn't tried yet (background.auto_redeem)."""
+        role = app.active_role()
+        conn = db.connect()
+        if not role or not background.setting(conn, "auto_redeem"):
+            return
+        try:
+            got = [c for c, r in background.auto_redeem(conn, vault.load(), role["game_uid"]) if r == "redeemed"]
+        except Exception:
+            return  # offline or the list is down: the next start tries again
+        if got:
+            toast(f"Redeemed {len(got)} new code(s): {', '.join(got)}. Rewards are in your in-game mail.")
+
     def startup():
         # One request at a time, like a person using the website, never a burst.
         if start:  # theme change: the first run already refreshed and prefetched everything
@@ -196,6 +209,7 @@ def main(page: ft.Page, start=0):
         PRYDWEN.update(wish.load_data("prydwen_tiers.json"))
         app.load_rewards()
         app.load_profiles()
+        auto_redeem()
         # Character/weapon catalogue (cached a week) gives wish portraits for releases paimon.moe lacks.
         try:
             for cat in ("Characters", "Weapons"):

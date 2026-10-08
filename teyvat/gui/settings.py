@@ -1,9 +1,10 @@
 """Settings tab: preferences, phone sync over the LAN, import/export/delete of wish data, About."""
 import json
+import os
 
 import flet as ft
 
-from teyvat import __version__, db, lansync, wish
+from teyvat import __version__, background, db, lansync, wish
 from teyvat.gui import theme
 from teyvat.gui.app import CHARACTERS, EVENTS, SETTINGS, WISHES, WORLD
 from teyvat.gui.theme import APP, APP_AUTHOR, APP_REPO, SEEDS, STRETCH, STYLES, THEMES
@@ -20,6 +21,28 @@ def build(app):
         db.set_meta(db.connect(), "auto_checkin", "1" if e.control.value else "0")
         app.show_auto_note()
         page.update()
+
+    def labeled(sw, text, **kw):
+        """Switch with a label that wraps: a Switch's own label stays on one line and runs off a phone screen."""
+        return ft.Row([sw, ft.Text(text, size=14, expand=True)], spacing=12, **kw)
+
+    def switch(key, text):
+        """On/off setting stored as "1"/"0", on by default (background.setting)."""
+        return labeled(ft.Switch(value=background.setting(db.connect(), key), on_change=lambda e: db.set_meta(
+            db.connect(), key, "1" if e.control.value else "0")), text)
+
+    def set_task():
+        on = task_switch.value
+        try:
+            background.schedule(on)
+        except Exception:
+            task_switch.value = not on
+            raise
+        return ("Teyvault now checks in, redeems codes and sends alerts every hour, even when closed." if on
+                else "Background task removed.")
+
+    # Windows only: Task Scheduler runs the CLI hourly; phones have no such hook.
+    task_switch = ft.Switch(value=background.scheduled(), on_change=guarded(set_task))
 
     def set_pref(key):
         def handler(e):
@@ -49,7 +72,11 @@ def build(app):
     account_row = ft.Column([muted("Which account World, Characters and Wishes show first."), account_pick],
                             spacing=8, visible=False)
     prefs_card = card(
-        ft.Switch(label="Check in automatically when Teyvault opens", value=app.auto_on(), on_change=set_auto_checkin),
+        labeled(ft.Switch(value=app.auto_on(), on_change=set_auto_checkin), "Check in automatically when Teyvault opens"),
+        switch("auto_redeem", "Redeem new promo codes automatically"),
+        switch("alerts", "Alert me when resin is almost full, expeditions are back or realm currency is full"),
+        labeled(task_switch, "Run in the background every hour, even when Teyvault is closed",
+                visible=app.desktop and os.name == "nt"),
         ft.Row([ft.Dropdown(label="Mode", value=mode, width=220, dense=True, filled=True, border_radius=14,
                             options=[ft.DropdownOption(k, v) for k, v in THEMES.items()], on_select=set_pref("theme")),
                 style_pick, seed_pick], wrap=True, spacing=12, run_spacing=12),
