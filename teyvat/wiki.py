@@ -367,6 +367,17 @@ def current_banners(data, region=None, now=None) -> list[tuple[str, dict, dateti
     return out
 
 
+def next_resets(region=None, now=None) -> tuple[datetime.datetime, datetime.datetime]:
+    """Next daily and weekly (Monday) reset, 04:00 server time."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    tz = datetime.timezone(datetime.timedelta(hours=SERVER_UTC.get(region, 8)))
+    local = now.astimezone(tz)
+    daily = local.replace(hour=4, minute=0, second=0, microsecond=0)
+    if daily <= local:
+        daily += datetime.timedelta(days=1)
+    return daily, daily + datetime.timedelta(days=-daily.weekday() % 7)
+
+
 def patches(data, region=None) -> list[tuple[str, datetime.datetime, datetime.datetime]]:
     """(version, start, end) per game version, oldest first: from its first character banner's start
     to its last one's end."""

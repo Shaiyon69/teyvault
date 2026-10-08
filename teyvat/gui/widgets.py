@@ -13,6 +13,13 @@ def today() -> str:
     return datetime.date.today().isoformat()
 
 
+def countdown(seconds) -> str:
+    """Time left as "3d 4h", "5h 12m" or "8m"."""
+    s = max(0, int(seconds))
+    d, h, m = s // 86400, s % 86400 // 3600, s % 3600 // 60
+    return f"{d}d {h}h" if d else f"{h}h {m}m" if h else f"{m}m"
+
+
 def label(text, **kw):
     """Card/stat label: small UPPERCASE text, the one heading style inside cards."""
     return ft.Text(text.upper(), **{"size": 12, "weight": ft.FontWeight.W_500, "color": ft.Colors.ON_SURFACE, **kw})

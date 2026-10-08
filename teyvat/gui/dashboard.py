@@ -1,18 +1,31 @@
 """Dashboard tab: account stats, today's domains, daily check-in rewards and promo codes."""
 import datetime
+import threading
+import time
 
 import flet as ft
 
-from teyvat import db, hoyolab, vault, wiki
+from teyvat import background, db, hoyolab, vault, wiki
 from teyvat.gui import theme
 from teyvat.gui.theme import STRETCH
-from teyvat.gui.widgets import bar, card, item_icon, label, muted, reward_tile, skeleton, today
+from teyvat.gui.widgets import bar, card, countdown, item_icon, label, muted, reward_tile, skeleton, today
 
 PRIMOGEM_ICON = "https://cdn.jsdelivr.net/gh/MadeBaruna/paimon-moe@main/static/images/primogem.png"
+REFRESH_S = 900  # real-time notes refresh (and alert check) while the app is open
+_live = {}  # the newest window's load_resin; a theme change rebuilds the tab but keeps one refresh thread
+
+
+def _watch():
+    while True:
+        time.sleep(REFRESH_S)
+        try:
+            _live["load"](quiet=True)
+        except Exception:
+            pass  # signed out, offline: the next round tries again
 
 
 def build(app):
-    page, phone = app.page, app.phone
+    page, phone, toast = app.page, app.phone, app.toast
     active_role, guarded, logged_in = app.active_role, app.guarded, app.logged_in
     page_head, signin_prompt = app.page_head, app.signin_prompt
     GOLD, _, WON, LOST = theme.accents()
@@ -66,7 +79,7 @@ def build(app):
             w, h = app.content_size()
             cols = rewards_grid.columns
             rows = -(-len(m["awards"]) // cols)
-            height = max(84, int((h - 170) / rows) - 6)  # minus head card, card padding and its header row
+            height = max(84, int((h - 214) / rows) - 6)  # minus head card, card padding and its header row (measured)
             width = ((w - 16) / 2 - 42) / cols - 6
             icon = int(max(32, min(72, height - 48, width - 16)))
         rewards_grid.controls = [reward_tile(i + 1, a, i < signed, i == current and not m["error"], icon, height)
@@ -117,13 +130,17 @@ def build(app):
 
     checkin_btn.on_click = guarded(do_checkin_and_refresh)
 
-    # Stats: resin, commissions, realm currency and expeditions, one card each, 2 per row
-    # (PC: above the domains in the left column, so the rewards calendar gets the full height).
+    # Stats: resin, commissions, realm currency, expeditions, weekly bosses and the transformer, one card each,
+    # 3 per row on PC (above the domains in the left column, so the rewards calendar gets the full height), 2 on phones.
     resin_strip = resin_card = ft.ResponsiveRow(spacing=16, run_spacing=16, visible=False)
-    stat_col = 6
 
-    def load_resin():
-        """Worker thread, after the game accounts are known. Real-time notes of the active account."""
+    def stat_col():
+        """Stat cards per row: 3 when the left column is wide enough for their labels, else 2."""
+        return 6 if phone or (app.content_size()[0] - 16) / 2 < 600 else 4
+
+    def load_resin(quiet=False):
+        """Worker thread, after the game accounts are known. Real-time notes of the active account, and their
+        alerts. `quiet`: the timed refresh, which keeps the old cards up instead of a skeleton."""
         role = active_role()
         resin_card.visible = role is not None
         dash_sub.value = (f"{role['nickname']} · AR {role['level']} · {role['region_name']}" if role
@@ -132,11 +149,14 @@ def build(app):
         if not role:
             page.update()
             return
-        resin_strip.controls = [ft.Container(skeleton(1, height=52), col=12)]
-        page.update()
+        if not quiet:
+            resin_strip.controls = [ft.Container(skeleton(1, height=52), col=12)]
+            page.update()
         try:
             n = hoyolab.daily_note(vault.load(), role)
         except Exception as ex:
+            if quiet:
+                return
             resin_strip.controls = [card(muted(f"Could not load resin: {ex}. Turn on Real-time Notes in "
                                                "HoYoLAB's Battle Chronicle settings.", size=13), col=12)]
         else:
@@ -145,21 +165,48 @@ def build(app):
             color = LOST if cur >= cap else ft.Colors.PRIMARY
             # compact cards: label and value on one line, a small note (or the resin bar) under it
             def stat(name, text, note, color=None):
+                if phone:  # two narrow cards per row: label on its own line, the value under it
+                    return card(ft.Column([
+                        label(name, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                        ft.Text(text, size=17, weight=ft.FontWeight.W_600, color=color),
+                        note if isinstance(note, ft.Control) else muted(note, size=11, max_lines=1,
+                                                                           overflow=ft.TextOverflow.ELLIPSIS),
+                    ], spacing=2, horizontal_alignment=STRETCH), col=stat_col(),
+                        padding=ft.Padding.symmetric(horizontal=14, vertical=10))
                 return card(ft.Column([
-                    ft.Row([label(name, expand=True), ft.Text(text, size=15, weight=ft.FontWeight.W_600,
+                    ft.Row([label(name, expand=True, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS), ft.Text(text, size=15, weight=ft.FontWeight.W_600,
                                                               color=color)], spacing=6),
-                    note if isinstance(note, ft.Control) else muted(note, size=11),
-                ], spacing=4, horizontal_alignment=STRETCH), col=stat_col,
+                    note if isinstance(note, ft.Control) else muted(note, size=11, max_lines=1, tooltip=note,
+                                                                       overflow=ft.TextOverflow.ELLIPSIS),
+                ], spacing=4, horizontal_alignment=STRETCH), col=stat_col(),
                     padding=ft.Padding.symmetric(horizontal=14, vertical=10))
 
+            now = datetime.datetime.now(datetime.timezone.utc)
+            daily, weekly = (countdown((t - now).total_seconds()) for t in wiki.next_resets(role["region"], now))
+            back = sum(e.get("status") == "Finished" for e in n.get("expeditions") or [])
+            tf = n.get("transformer") or {}
+            rt = tf.get("recovery_time") or {}
+            ready = "Ready" if rt.get("reached") else countdown(
+                rt.get("Day", 0) * 86400 + rt.get("Hour", 0) * 3600 + rt.get("Minute", 0) * 60)
             resin_strip.controls = [
                 stat("Original Resin", f"{cur}/{cap}",
                      ft.Row([bar(cur / cap, color, height=4), muted("Full" if left <= 0 else f"full {full}", size=11)],
                             spacing=6), color),
-                stat("Commissions", f"{n['finished_task_num']}/{n['total_task_num']}", "done today"),
+                stat("Commissions", f"{n['finished_task_num']}/{n['total_task_num']}", f"resets in {daily}"),
                 stat("Realm currency", f"{n['current_home_coin']:,}", f"of {n['max_home_coin']:,}"),
-                stat("Expeditions", f"{n['current_expedition_num']}/{n['max_expedition_num']}", "dispatched"),
+                stat("Expeditions", f"{n['current_expedition_num']}/{n['max_expedition_num']}",
+                     f"dispatched · {back} back" if back else "dispatched"),
+                stat("Weekly bosses", f"{n.get('remain_resin_discount_num', 0)}/{n.get('resin_discount_num_limit', 3)}",
+                     f"left · resets in {weekly}"),
+                stat("Transformer", ready if tf.get("obtained") else "-",
+                     "Parametric Transformer" if tf.get("obtained") else "not obtained yet",
+                     WON if rt.get("reached") else None),
             ]
+            conn = db.connect()
+            if background.setting(conn, "alerts") and (news := background.new_alerts(conn, role["game_uid"], n)):
+                toast(" ".join(news))
+                if app.desktop:  # the window may be minimised; mobile only gets the snackbar
+                    background.notify("Teyvault", "\n".join(news))
         page.update()
 
     # Primogems: no API returns the balance, so the player types it in (e.g. before closing the game);
@@ -170,6 +217,50 @@ def build(app):
     primo_field = ft.TextField(hint_text="Current primogems", keyboard_type=ft.KeyboardType.NUMBER,
                                border_radius=14, filled=True, dense=True, expand=True)
     primo_log = ft.Column(spacing=2)
+    diary_col = ft.Column(spacing=6, horizontal_alignment=STRETCH)
+
+    def load_diary():
+        """Traveler's Diary (worker thread): this month's primogem and mora income by source."""
+        role = active_role()
+        if not role:
+            return
+        diary_col.controls = [skeleton(1, height=40)]
+        diary_col.update()
+        try:
+            d = hoyolab.diary(vault.load(), role)
+        except Exception as ex:
+            diary_col.controls = [muted(f"Could not load the Traveler's Diary: {ex}", size=12)]
+            diary_col.update()
+            return
+        m, day = d["month_data"], d["day_data"]
+        sources = sorted((g for g in m.get("group_by", []) if g["num"]), key=lambda g: -g["num"])
+        diary_col.controls = [
+            label(f"Traveler's Diary · {datetime.date(2000, d['data_month'], 1):%B}"),
+            ft.Row([muted("Primogems", size=12, expand=True), ft.Text(f"{m['current_primogems']:,}", color=GOLD,
+                                                                      weight=ft.FontWeight.W_600)]),
+            muted(f"Today {day['current_primogems']:,} · last month {m['last_primogems']:,}", size=12),
+            ft.Row([muted("Mora", size=12, expand=True), ft.Text(f"{m['current_mora']:,}", weight=ft.FontWeight.W_600)]),
+            muted(f"Today {day['current_mora']:,} · last month {m['last_mora']:,}", size=12),
+            label("Primogems by source"),
+            *[ft.Row([muted(g["action"], size=12, width=130), bar(g["percent"] / 100, GOLD, height=4),
+                      muted(f"{g['num']:,}", size=12, width=56, text_align=ft.TextAlign.RIGHT)], spacing=8)
+              for g in sources],
+            label("Your balance log"),
+        ]
+        diary_col.update()
+
+    def open_primos(e):
+        diary_col.controls = []
+        page.show_dialog(ft.AlertDialog(
+            title=ft.Text("Primogems"), actions=[ft.TextButton("Close", on_click=lambda ev: page.pop_dialog())],
+            content=ft.Container(ft.Column([
+                diary_col,
+                ft.Row([primo_field, ft.FilledTonalButton("Save", icon=ft.Icons.SAVE_ROUNDED,
+                                                          on_click=guarded(save_primos))],
+                       spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                primo_log], spacing=12, tight=True, scroll=ft.ScrollMode.AUTO), width=min(420, (page.width or 420) - 48))))
+        if logged_in():
+            page.run_thread(load_diary)
 
     def primo_uid():
         role = active_role()
@@ -196,13 +287,7 @@ def build(app):
         load_primos()
         page.update()
 
-    primo_btn.on_click = lambda e: page.show_dialog(ft.AlertDialog(
-        title=ft.Text("Primogems"), actions=[ft.TextButton("Close", on_click=lambda ev: page.pop_dialog())],
-        content=ft.Container(ft.Column([
-            ft.Row([primo_field, ft.FilledTonalButton("Save", icon=ft.Icons.SAVE_ROUNDED,
-                                                      on_click=guarded(save_primos))],
-                   spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            primo_log], spacing=12, tight=True), width=380)))
+    primo_btn.on_click = open_primos
     load_primos()
     # account line with the primogem count right after it, in the head card
     dash_sub.max_lines, dash_sub.overflow = 1, ft.TextOverflow.ELLIPSIS
@@ -239,7 +324,13 @@ def build(app):
             day = wiki.farm_day(role and role["region"])
             domains_sub.value = ("Sunday: every domain is open." if day == 6 else
                                  f"{wiki.DAYS[day].title()}, until 04:00 server time. Sunday opens them all.")
-            farm["mats"] = mats
+            # characters on the Characters tab's farming planner come first, and are named here
+            plan = db.get_json(db.connect(), f"planner:{role['game_uid']}", {}) if role else {}
+            planned = {p["name"] for p in plan.values()}
+            due = sorted(planned & {n for m in mats for n, _ in m["items"]})
+            if due:
+                domains_sub.value += f" Your planner: {', '.join(due)}."
+            farm["mats"], farm["planned"] = mats, planned
             show_domains()
         page.update()
 
@@ -251,7 +342,9 @@ def build(app):
             return 38
         w, h = app.content_size()
         w = (w - 16) / 2 - 42 + 4  # the left column, minus card padding; +4 for the last icon's missing gap
-        h -= 99 + 134 + (158 if resin_card.visible else 0)  # head card, the card's own chrome, the stat cards
+        rows = -(-len(resin_strip.controls) * stat_col() // 12)
+        stats = rows * 71 + 16 if resin_card.visible else 0  # one card row is 71 px, plus the gap below
+        h -= 99 + 134 + stats  # head card, the card's own chrome, the stat cards
         return next((s for s in range(72, 32, -2) if -(-n // max(1, int(w // (s + 4)))) * (s + 4) <= h), 32)
 
     def show_domains():
@@ -259,7 +352,8 @@ def build(app):
         mats = farm.get("mats")
         if mats is None:
             return
-        groups = [(key, kind, [(n, r) for m in mats if m["kind"] == key for n, r in m["items"]])
+        later = lambda x: x[0] not in farm.get("planned", ())  # planned characters first
+        groups = [(key, kind, sorted(((n, r) for m in mats if m["kind"] == key for n, r in m["items"]), key=later))
                   for key, kind in (("talent", "Character"), ("weapon", "Weapon"))]
         size = domain_icon_size(max(len(items) for *_, items in groups))
         domains_body.controls = [ft.Row([item_icon(n, kind, size, r) for n, r in items],
@@ -295,12 +389,19 @@ def build(app):
             rewards_card.visible = resin_card.visible = False
 
     def fit():
+        if len(resin_strip.controls) > 1:  # not the skeleton or an error card
+            for c in resin_strip.controls:
+                c.col = stat_col()
         show_rewards()
         show_domains()
 
     if not phone:
         app.on_resize.append(fit)
     app.load_rewards, app.load_resin, app.load_domains = load_rewards, load_resin, load_domains
+    _live["load"] = load_resin
+    if not _live.get("thread"):
+        _live["thread"] = threading.Thread(target=_watch, daemon=True)
+        _live["thread"].start()
     app.do_checkin, app.show_checkin, app.show_auto_note = do_checkin, show_checkin, show_auto_note
     app.show_dashboard_auth = show_auth
     return today_view
