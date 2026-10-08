@@ -9,7 +9,7 @@ from teyvat import db, wiki, wish
 from teyvat.gui import theme
 from teyvat.gui.app import WISHES
 from teyvat.gui.theme import STRETCH, STYLE
-from teyvat.gui.widgets import banner_tile, card, muted, pity_color, pity_meter, pull_chip, skeleton
+from teyvat.gui.widgets import banner_tile, card, item_icon, muted, pity_color, pity_meter, pull_chip, skeleton
 
 POOL_TITLES = {"character": "Character Event", "weapon": "Weapon Event", "standard": "Standard",
                "chronicled": "Chronicled", "beginner": "Beginner"}
@@ -37,11 +37,13 @@ def build(app):
         """Worker thread. Hidden if paimon.moe can't be reached and nothing is cached."""
         role = active_role()
         try:
-            live = wiki.current_banners(wiki.banners(db.connect()), role and role["region"])
+            data = wiki.banners(db.connect())
+            live = wiki.current_banners(data, role and role["region"])
         except Exception:
-            banners_card.visible = False
+            banners_card.visible = reruns_card.visible = False
             page.update()
             return
+        show_reruns(wiki.reruns(data, role and role["region"]))
         wiki.cache_images([wiki.banner_image(b) for _, b, _, _ in live]
                           + [wiki.icon_for(wiki.name_for(x)) for _, b, _, _ in live
                              for x in b.get("featured", [])[:6] + b.get("featuredRare", [])[:5]])
@@ -52,6 +54,32 @@ def build(app):
             b.col = {"xs": 12, "md": 12 if len(live) == 1 else 6, "xl": max(4, 12 // len(live))}
         banners_card.visible = bool(live)
         page.update()
+
+    # Rerun tracker: every banner 5★, longest wait first, like paimon.moe's banner history.
+    reruns_grid = ft.ResponsiveRow([skeleton(1, height=150)], spacing=8, run_spacing=8)
+    reruns_card = card(muted("5★ characters by time since their last banner.", size=12), reruns_grid,
+                       title="Rerun tracker")
+
+    def show_reruns(rows):
+        now = datetime.datetime.now(datetime.timezone.utc)
+
+        def when(r):
+            if r["status"] == "live":
+                return "On banner now", GOLD
+            if r["status"] == "next":
+                return "Coming next", GOLD
+            return f"{(now - r['last']).days:,} days ago", None
+
+        reruns_grid.controls = []
+        for r in rows:
+            text, color = when(r)
+            reruns_grid.controls.append(ft.Container(ft.Row([
+                item_icon(r["name"], "Character", 40),
+                ft.Column([ft.Text(r["name"], size=13, weight=ft.FontWeight.W_600, no_wrap=True,
+                                   overflow=ft.TextOverflow.ELLIPSIS),
+                           ft.Text(text, size=12, color=color or ft.Colors.ON_SURFACE_VARIANT),
+                           muted(f"{r['runs']} run{'s' * (r['runs'] != 1)}", size=11)], spacing=0, expand=True)],
+                spacing=10), col={"xs": 6, "sm": 4, "md": 3, "xl": 2}))
 
     # Pull planner: odds of the featured 5★ from saved primos and fates, starting at the history's pity.
     plan_state = {"pools": {}}  # wish.stats of the shown UID, plus each banner's end time by name
@@ -293,4 +321,5 @@ def build(app):
         banners_card,
         plan_card,
         stats_view,
+        reruns_card,
     ], spacing=16, horizontal_alignment=STRETCH)

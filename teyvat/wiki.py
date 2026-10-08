@@ -367,6 +367,29 @@ def current_banners(data, region=None, now=None) -> list[tuple[str, dict, dateti
     return out
 
 
+def reruns(data, region=None, now=None) -> list[dict]:
+    """Every limited 5★ character an event banner featured: {id, name, runs, last (end of its latest run, or None
+    while it's on a banner now or announced), status: "live"|"next"|"past"}, longest wait first.
+    Standard-pool 5★s (Keqing, Tighnari, ...) are left out: they don't get reruns."""
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    standard = {wish.slug(n) for n in wish.load_standard()}
+    out = {}
+    for b in data.get("characters", []):
+        start, end = event_times(b, region)
+        for pid in (x for x in b.get("featured", []) if x not in standard):
+            r = out.setdefault(pid, {"id": pid, "name": name_for(pid), "runs": 0, "last": None, "status": "past"})
+            if start > now:
+                r["status"] = "next" if r["status"] == "past" else r["status"]
+                continue
+            r["runs"] += 1
+            if end > now:
+                r["status"] = "live"
+            elif not r["last"] or end > r["last"]:
+                r["last"] = end
+    rank = {"past": 0, "next": 1, "live": 2}
+    return sorted(out.values(), key=lambda r: (rank[r["status"]], r["last"] or now))
+
+
 def next_resets(region=None, now=None) -> tuple[datetime.datetime, datetime.datetime]:
     """Next daily and weekly (Monday) reset, 04:00 server time."""
     now = now or datetime.datetime.now(datetime.timezone.utc)
