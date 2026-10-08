@@ -139,7 +139,22 @@ class App:
                     ft.Row([ft.FilledButton("Sign in", icon=ft.Icons.LOGIN_ROUNDED, on_click=lambda e: self.select(ACCOUNT))]))
 
     def toast(self, msg):
-        self.page.show_dialog(ft.SnackBar(ft.Text(msg), show_close_icon=True))
+        """Floating pill notice: fades in, swipe or wait to dismiss. PC: a narrow one at the bottom; phones:
+        above the floating nav bar instead of over it."""
+        bad = any(w in msg.lower() for w in ("fail", "could not", "error", "invalid"))
+        body = ft.Row([ft.Icon(ft.Icons.ERROR_OUTLINE_ROUNDED if bad else ft.Icons.CHECK_CIRCLE_OUTLINE_ROUNDED,
+                               size=18, color=ft.Colors.ERROR if bad else ft.Colors.PRIMARY),
+                       ft.Text(msg, size=13, color=ft.Colors.ON_SURFACE, expand=True)],
+                      spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER)
+        w = self.page.width or 1280
+        self.page.show_dialog(ft.SnackBar(
+            body, behavior=ft.SnackBarBehavior.FLOATING, dismiss_direction=ft.DismissDirection.HORIZONTAL,
+            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST, elevation=6, duration=4000,
+            shape=ft.RoundedRectangleBorder(radius=14), padding=ft.Padding.symmetric(horizontal=16, vertical=10),
+            show_close_icon=not self.phone, close_icon_color=ft.Colors.ON_SURFACE_VARIANT,
+            # Flutter takes either a width or a margin
+            margin=ft.Margin.only(left=16, right=16, bottom=84) if self.phone else None,
+            width=None if self.phone else min(460, w - 48)))
 
     def guarded(self, fn):
         """Wrap a blocking action: disable the button while it runs, show result or error.

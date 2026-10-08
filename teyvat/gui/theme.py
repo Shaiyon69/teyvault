@@ -89,10 +89,15 @@ def use_style(name, light, mobile):
     }.get(name, {}))
 
 
-# Thin, trackless scrollbar that fades in while scrolling instead of the default grey gutter.
-SCROLLBAR = ft.ScrollbarTheme(thickness=4, radius=4, track_visibility=False, track_color=ft.Colors.TRANSPARENT,
-                              track_border_color=ft.Colors.TRANSPARENT, cross_axis_margin=2, main_axis_margin=4,
-                              thumb_color=ft.Colors.with_opacity(0.3, ft.Colors.ON_SURFACE))
+# Slim, trackless scrollbar that only shows while scrolling or hovered, tinted with the theme's accent.
+# PC pages scroll inside a right gutter (gui.main's GUTTER), so the thumb never sits on top of a card.
+SCROLLBAR = ft.ScrollbarTheme(
+    thickness={ft.ControlState.HOVERED: 6, ft.ControlState.DEFAULT: 3}, radius=3, interactive=True,
+    thumb_visibility=False, track_visibility=False, track_color=ft.Colors.TRANSPARENT,
+    track_border_color=ft.Colors.TRANSPARENT, cross_axis_margin=1, main_axis_margin=6, min_thumb_length=40,
+    thumb_color={ft.ControlState.HOVERED: ft.Colors.with_opacity(0.7, ft.Colors.PRIMARY),
+                 ft.ControlState.DRAGGED: ft.Colors.PRIMARY,
+                 ft.ControlState.DEFAULT: ft.Colors.with_opacity(0.35, ft.Colors.ON_SURFACE_VARIANT)})
 
 
 def make_theme(style, light, seed):

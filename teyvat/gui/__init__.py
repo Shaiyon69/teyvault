@@ -12,6 +12,8 @@ from teyvat.gui.theme import (APP, APP_AUTHOR, APP_REPO, FONTS, PRYDWEN, SEEDS, 
                               use_style)
 from teyvat.gui.widgets import logo_badge, muted, title_bar_for, today
 
+GUTTER = 12  # PC: room right of the cards for the scrollbar, taken out of the panel's right padding
+
 
 def main(page: ft.Page, start=0):
     """Build the window. A theme change calls it again (app.restart) with the tab to reopen as `start`."""
@@ -109,9 +111,15 @@ def main(page: ft.Page, start=0):
             pin_trailing_to_bottom=True,
             destinations=[ft.NavigationRailDestination(icon=icon, selected_icon=sel, label=label)
                           for label, icon, sel in SECTIONS])
-        # the dashboard and events fit the window on their own; every other tab scrolls
-        content = ft.Column(views[2:], scroll=ft.ScrollMode.AUTO, spacing=16, on_scroll=app.on_page_scroll,
+        # the dashboard and events fit the window on their own; every other tab scrolls, its scrollbar in the gutter
+        content = ft.Column([ft.Container(ft.Column(views[2:], spacing=16, horizontal_alignment=STRETCH),
+                                          padding=ft.Padding.only(right=GUTTER))],
+                            scroll=ft.ScrollMode.AUTO, on_scroll=app.on_page_scroll,
                             scroll_interval=200, horizontal_alignment=STRETCH, expand=True)
+        # same right edge as the scrolling tabs; select() toggles these wrappers
+        views[0] = ft.Container(today_view, padding=ft.Padding.only(right=GUTTER), expand=True)
+        views[1] = ft.Container(events_view, padding=ft.Padding.only(right=GUTTER), expand=True)
+        today_view, events_view = views[0], views[1]
 
         def fit_rail():
             """Labelled sidebar when wide; icons with labels underneath on a portrait tablet."""
@@ -127,9 +135,9 @@ def main(page: ft.Page, start=0):
             page.bgcolor = STYLE["bg"]
             panel = ft.Container(views_col, expand=True, bgcolor=STYLE["panel"], margin=ft.Margin.only(top=10),
                                  border_radius=ft.BorderRadius.only(top_left=24),
-                                 padding=ft.Padding.only(left=29, top=23, right=29, bottom=23))
+                                 padding=ft.Padding.only(left=29, top=23, right=29 - GUTTER, bottom=23))
         else:
-            panel = ft.Container(views_col, expand=True, padding=ft.Padding.only(top=8, right=32, bottom=16))
+            panel = ft.Container(views_col, expand=True, padding=ft.Padding.only(top=8, right=32 - GUTTER, bottom=16))
         body = ft.Row([nav, panel], spacing=0 if STYLE["panel"] else 32, expand=True,
                       vertical_alignment=ft.CrossAxisAlignment.STRETCH)
         if desktop:

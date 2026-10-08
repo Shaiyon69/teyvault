@@ -55,8 +55,15 @@ def build(app):
         ("rarity", "Rarity"), ("region", "Region"), ("stat", "Ascension stat"), ("tier", "Meta tier"),
         ("role", "Meta role"))], "none", lambda e: show_chars())
     f_search = search_field("Search characters", lambda e: show_chars())
-    chars_filters = filter_bar([f_search], ft.Row([f_element, f_weapon, f_rarity, f_region, f_stat, f_tier, f_role,
-                                                        f_sort, f_group]))
+    pills = [f_element, f_weapon, f_rarity, f_region, f_stat, f_tier, f_role, f_sort, f_group]
+    if phone:
+        pill_row = ft.Row(pills)
+    else:  # nine pills squeezed into one line truncate in a window; wrap to fewer, wider ones per row
+        n = len(pills)
+        for d in pills:
+            d.col = {k: 12 * n // min(n, per) for k, per in {"xs": 3, "md": 4, "lg": 5, "xl": 7, "xxl": n}.items()}
+        pill_row = ft.ResponsiveRow(pills, columns=12 * n, run_spacing=8)
+    chars_filters = filter_bar([f_search], pill_row)
 
     def show_chars():
         """Apply the filter bar to the loaded roster. Tier and role filters match the same rating, so

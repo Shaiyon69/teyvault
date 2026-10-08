@@ -107,7 +107,9 @@ def reward_tile(day, award, claimed, current, icon=36, height=None):
         ft.Icon(ft.Icons.CHECK_CIRCLE_ROUNDED, size=15, color=theme.WON) if claimed else muted(f"Day {day}", size=11, no_wrap=True),
         ft.Image(src=wiki.image(award["icon"]), width=icon, height=icon,
                  error_content=ft.Icon(ft.Icons.CARD_GIFTCARD_ROUNDED, color=ft.Colors.ON_SURFACE_VARIANT)),
-        ft.Text(f"×{award['cnt']:,}", size=12, weight=ft.FontWeight.W_600),
+        # "×8k", not "×8,000": the full count wraps in narrow tiles (window mode); the tooltip has it
+        ft.Text(f"×{award['cnt'] / 1000:g}k" if award["cnt"] >= 1000 else f"×{award['cnt']}", size=12,
+                weight=ft.FontWeight.W_600, no_wrap=True),
     ], spacing=2, horizontal_alignment=ft.CrossAxisAlignment.CENTER, alignment=ft.MainAxisAlignment.CENTER),
         col=1, padding=4, border_radius=12, height=height, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
         opacity=0.45 if claimed and not current else 1,
