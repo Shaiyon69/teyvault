@@ -558,6 +558,22 @@ def _image_dir() -> Path:
     return db.default_path().parent / "images"
 
 
+def cache_size() -> int:
+    """Bytes taken by downloaded images (Settings > Storage)."""
+    d = _image_dir()
+    return sum(f.stat().st_size for f in d.iterdir() if f.is_file()) if d.exists() else 0
+
+
+def clear_cache(conn, images=False) -> None:
+    """Forget cached wiki/paimon.moe responses (`wiki:*` in meta) so tabs refetch; `images` also deletes the
+    downloaded images. Startup and each tab download them again as they are needed."""
+    with conn:
+        conn.execute("DELETE FROM meta WHERE key LIKE 'wiki:%'")
+    if images and _image_dir().exists():
+        for f in _image_dir().iterdir():
+            f.unlink(missing_ok=True)
+
+
 def _image_path(url) -> Path:
     suffix = Path(urllib.parse.urlsplit(url).path).suffix[:5] or ".img"  # Flutter sniffs the format anyway
     return _image_dir() / (hashlib.sha1(url.encode()).hexdigest() + suffix)

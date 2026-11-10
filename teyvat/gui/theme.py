@@ -1,4 +1,8 @@
 """Colors, theme styles and branding, shared by every GUI file."""
+import os
+import re
+from pathlib import Path
+
 import flet as ft
 
 from teyvat import wish
@@ -38,6 +42,51 @@ STYLES = {"clean": "Clean", "classic": "Classic", "material": "Material You", "g
 # so the accents are the only color on screen. (window, panel, card, raised, highest, muted, text)
 CLEAN = {False: ("#0D1117", "#161B22", "#21262D", "#30363D", "#3D444D", "#8B949E", "#FFFFFF"),
          True: ("#FFFFFF", "#F6F8FA", "#EAEEF2", "#D0D7DE", "#C4CBD3", "#57606A", "#1F2328")}
+
+
+def gtk_colors(path=Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "gtk-4.0" / "gtk.css"):
+    """`@define-color` values from the GTK4 user CSS (and the files it @imports), which shells like Noctalia,
+    matugen or DankMaterialShell regenerate from the wallpaper. {} when there is none."""
+    colors, seen = {}, set()
+
+    def read(f):
+        if f in seen or not f.is_file():
+            return
+        seen.add(f)
+        text = f.read_text(errors="ignore")
+        for name in re.findall(r'@import\s+url\(["\']?([^"\')]+)', text):
+            read(f.parent / name)
+        colors.update(re.findall(r"@define-color\s+(\w+)\s+([^;]+);", text))
+
+    read(path)
+    for _ in range(3):  # resolve "@window_bg_color" style references
+        colors = {k: colors.get(v[1:], v) if v.startswith("@") else v for k, v in colors.items()}
+    return {k: v.strip() for k, v in colors.items() if re.fullmatch(r"#[0-9a-fA-F]{6}", v.strip())}
+
+
+def _mix(a, b, t):
+    """Hex color t of the way from a to b."""
+    x, y = (int(a[i:i + 2], 16) for i in (1, 3, 5)), (int(b[i:i + 2], 16) for i in (1, 3, 5))
+    return "#" + "".join(f"{round(p + (q - p) * t):02X}" for p, q in zip(x, y))
+
+
+def _niri():
+    """Niri style: the Clean layers rebuilt from the desktop's GTK colors, so the app follows the system theme.
+    (layers like CLEAN, accent, on-accent, is-light) or None off Linux / without GTK colors."""
+    c = gtk_colors() if os.name == "posix" else {}
+    bg, text, accent = c.get("window_bg_color"), c.get("window_fg_color"), c.get("accent_color")
+    if not (bg and text and accent):
+        return None
+    card = c.get("card_bg_color", _mix(bg, text, 0.08))
+    light = sum(int(bg[i:i + 2], 16) for i in (1, 3, 5)) > 3 * 128
+    return ((bg, _mix(bg, card, 0.5), card, _mix(card, text, 0.1), _mix(card, text, 0.16), _mix(text, bg, 0.4),
+             text), accent, c.get("accent_fg_color", bg), light)
+
+
+# NOTE: read once at import; a wallpaper/theme change shows after the next restart (Settings style pick or relaunch).
+NIRI = _niri()
+if NIRI:
+    STYLES["niri"] = "Niri (system colors)"
 SEEDS = {"#E6C07B": "Gold", "#6750A4": "Violet", "#1F7AC0": "Ocean", "#1E8A5A": "Forest", "#C8501E": "Ember",
          "#C2185B": "Rose"}
 NOTHING_RED = "#D71921"
@@ -76,7 +125,9 @@ def use_style(name, light, mobile):
     STYLE.clear()
     STYLE.update(CLASSIC)
     glass_tint = ft.Colors.with_opacity(0.55 if light else 0.07, ft.Colors.WHITE)
-    bg, panel, card_bg = CLEAN[light][:3]
+    if name == "niri" and not NIRI:
+        name = "clean"
+    bg, panel, card_bg = (NIRI[0] if name == "niri" else CLEAN[light])[:3]
     STYLE.update({
         "clean": {"name": name, "radius": 14, "card_bg": card_bg, "hero": None, "bg": bg, "panel": panel},
         "material": {"name": name, "radius": 28, "card_bg": ft.Colors.SURFACE_CONTAINER_HIGH, "hero": None},
@@ -86,7 +137,7 @@ def use_style(name, light, mobile):
                   "page_bg": ["#E9E2FF", "#F7F5FB", "#DDF2FF"] if light else ["#2A1B5C", "#0E1020", "#0B3346"]},
         "nothing": {"name": name, "radius": 12, "card_bg": ft.Colors.SURFACE,
                     "border": ft.Border.all(1, ft.Colors.OUTLINE_VARIANT), "hero": None, "heading_font": "Doto"},
-    }.get(name, {}))
+    }.get("clean" if name == "niri" else name, {}))  # Niri = Clean's layout in the system colors
 
 
 # Slim, trackless scrollbar that only shows while scrolling or hovered, tinted with the theme's accent.
@@ -103,10 +154,13 @@ SCROLLBAR = ft.ScrollbarTheme(
 def make_theme(style, light, seed):
     if style == "material":
         return ft.Theme(color_scheme_seed=seed, use_material3=True, font_family="Inter", scrollbar_theme=SCROLLBAR)
-    if style == "clean":
-        bg, panel, _, raised, highest, muted_, text = CLEAN[light]
+    if style == "niri" and NIRI:
+        layers, accent, on_accent, _ = NIRI
+    if style == "clean" or style == "niri" and NIRI:
+        bg, panel, _, raised, highest, muted_, text = layers if style == "niri" else CLEAN[light]
         scheme = ft.ColorScheme(
-            primary=DAY_ACCENTS[0] if light else "#E6C07B", on_primary="#FFFFFF" if light else "#1B1608",
+            primary=accent if style == "niri" else DAY_ACCENTS[0] if light else "#E6C07B",
+            on_primary=on_accent if style == "niri" else "#FFFFFF" if light else "#1B1608",
             secondary=DAY_ACCENTS[1] if light else "#B58CF5", surface=panel, on_surface=text,
             on_surface_variant=muted_, surface_container=bg, surface_container_high=raised,
             surface_container_highest=highest, outline_variant=raised)

@@ -197,41 +197,6 @@ def stats(rows, standard) -> dict:
     return out
 
 
-# (base 5★ rate, last pull before soft pity, rate added per soft-pity pull, hard pity, chance a 5★ is the wanted one)
-# NOTE: community-measured soft pity, and Capturing Radiance taken as a flat 55%; update if HoYoverse changes them.
-RATES = {"character": (0.006, 73, 0.06, 90, 0.55), "weapon": (0.007, 62, 0.07, 80, 0.375)}
-
-
-def odds(pulls, pity=0, guaranteed=False, copies=1, pool="character") -> float:
-    """Chance to get `copies` of the featured 5★ within `pulls` wishes. Weapon: the wanted one of the two
-    featured, with Epitomized Path (1 point) guaranteeing it after a miss, so `guaranteed` = path full."""
-    base, soft, step, hard, win = RATES[pool]
-    rate = [min(1.0, base + step * max(0, n - soft)) for n in range(1, hard + 1)]  # rate[p] = next pull at pity p
-    fresh = lambda: [[[0.0] * hard for _ in range(2)] for _ in range(copies)]
-    state = fresh()  # state[copies got][guaranteed][pity] = probability
-    state[0][bool(guaranteed)][min(pity, hard - 1)] = 1.0
-    done = 0.0
-    for _ in range(pulls):
-        nxt = fresh()
-        for got in range(copies):
-            for g in (0, 1):
-                for p, pr in enumerate(state[got][g]):
-                    if not pr:
-                        continue
-                    hit = pr * rate[p]
-                    if p + 1 < hard:
-                        nxt[got][g][p + 1] += pr - hit
-                    wanted = hit if g else hit * win
-                    if got + 1 == copies:
-                        done += wanted
-                    else:
-                        nxt[got + 1][0][0] += wanted
-                    if not g:
-                        nxt[got][1][0] += hit - wanted
-        state = nxt
-    return min(done, 1.0)
-
-
 def slug(name) -> str:
     """paimon.moe's id for a character/weapon name ("Kuki Shinobu" -> "kuki_shinobu")."""
     return re.sub(r"[^a-z0-9-]+", "_", re.sub(r"['\"]", "", name.lower())).strip("_")

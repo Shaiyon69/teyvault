@@ -9,6 +9,25 @@ from teyvat import db, wiki, wish
 from teyvat.gui import theme
 from teyvat.gui.theme import APP, NIGHT, PRYDWEN, RARITY_BG, SCROLLBAR, STRETCH, STYLE
 
+# Shared motion: images fade in instead of popping, tabs and pills ease between states.
+FADE_IN = ft.Animation(300, ft.AnimationCurve.EASE_OUT)
+EASE = ft.Animation(180, ft.AnimationCurve.EASE_OUT)
+# Decode icons at display size (x2 for HiDPI) instead of their full resolution: grids show hundreds of them.
+# Width only, so a non-square image keeps its aspect ratio.
+decode = lambda size: int(size * 2)
+
+
+def lift(control):
+    """Clickable tile: grows a little under the pointer (desktop hover; no-op on touch)."""
+    control.animate_scale = EASE
+
+    def hover(e):
+        control.scale = 1.04 if e.data in (True, "true") else 1
+        control.update()
+    control.on_hover = hover
+    return control
+
+
 def today() -> str:
     return datetime.date.today().isoformat()
 
@@ -69,13 +88,20 @@ def pity_meter(label, pity, hard, color):
     ], spacing=6)
 
 
-def tile(name, value, sub="", color=None, raised=True, **kw):
-    """Label + one big number. raised: a tile inside a card; otherwise a stat card of its own."""
-    return ft.Container(ft.Column([
+def tile(name, value, sub="", color=None, raised=True, icon=None, **kw):
+    """Label + one big number. raised: a tile inside a card; otherwise a stat card of its own.
+    `icon`: a tinted glyph on the right."""
+    text = ft.Column([
         label(name) if not raised else muted(name, size=13),
         ft.Text(value, size=20 if raised else 26, weight=ft.FontWeight.W_600, color=color),
         muted(sub, size=12, visible=bool(sub)),
-    ], spacing=2 if raised else 6), padding=12 if raised else 21,
+    ], spacing=2 if raised else 6, expand=bool(icon))
+    tint = color or ft.Colors.PRIMARY
+    return ft.Container(ft.Row([text, ft.Container(ft.Icon(icon, size=24, color=tint), width=44, height=44,
+                                                   border_radius=14, alignment=ft.Alignment.CENTER,
+                                                   bgcolor=ft.Colors.with_opacity(0.14, tint))],
+                               vertical_alignment=ft.CrossAxisAlignment.CENTER) if icon else text,
+        padding=12 if raised else 21,
         border_radius=STYLE["radius"] - 6 if raised else STYLE["radius"],
         bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH if raised else STYLE["card_bg"],
         border=None if raised else STYLE["border"], **kw)
@@ -85,10 +111,12 @@ def item_icon(name, item_type, size=36, rarity=5):
     """Character/weapon portrait on its rarity backdrop. HoYoLAB's wiki icon first (it has new releases
     on day one), then paimon.moe's, then the initial."""
     initial = ft.Text(name[:1], size=size / 2.4, weight=ft.FontWeight.BOLD)
-    paimon = ft.Image(src=wiki.image(wish.icon_url(name, item_type)), width=size, height=size, error_content=initial)
+    paimon = ft.Image(src=wiki.image(wish.icon_url(name, item_type)), width=size, height=size, error_content=initial,
+                      cache_width=decode(size))
     src = wiki.icon_for(name)
     return ft.Container(
-        ft.Image(src=wiki.image(src), width=size, height=size, error_content=paimon) if src else paimon,
+        ft.Image(src=wiki.image(src), width=size, height=size, error_content=paimon, cache_width=decode(size))
+        if src else paimon,
         width=size, height=size, border_radius=size / 2, alignment=ft.Alignment.CENTER,
         gradient=ft.LinearGradient(begin=ft.Alignment.TOP_CENTER, end=ft.Alignment.BOTTOM_CENTER,
                                    colors=RARITY_BG[rarity]),
@@ -105,7 +133,7 @@ def reward_tile(day, award, claimed, current, icon=36, height=None):
     """One day of the monthly check-in calendar, using HoYoLAB's own reward icon."""
     return ft.Container(ft.Column([
         ft.Icon(ft.Icons.CHECK_CIRCLE_ROUNDED, size=15, color=theme.WON) if claimed else muted(f"Day {day}", size=11, no_wrap=True),
-        ft.Image(src=wiki.image(award["icon"]), width=icon, height=icon,
+        ft.Image(src=wiki.image(award["icon"]), width=icon, height=icon, cache_width=decode(icon),
                  error_content=ft.Icon(ft.Icons.CARD_GIFTCARD_ROUNDED, color=ft.Colors.ON_SURFACE_VARIANT)),
         # "×8k", not "×8,000": the full count wraps in narrow tiles (window mode); the tooltip has it
         ft.Text(f"×{award['cnt'] / 1000:g}k" if award["cnt"] >= 1000 else f"×{award['cnt']}", size=12,
@@ -165,13 +193,13 @@ def month_calendar(month, events, selected, on_pick, compact=False):
 def timeline_chart(rows, on_pick, day_px=28, row_h=40, height=None):
     """Gantt of event rows [(event, start, end), ...], from a week ago to the last end (at most two months ahead).
     Pans sideways by drag (mouse too); tapping a bar calls on_pick(event, start, end).
-    `height`: squeeze the rows to fit it (no vertical scroll); names hide once bars get too thin to hold them."""
+    `height`: fit the rows to it (no vertical scroll, no empty space); names hide once bars get too thin to hold them."""
     now = datetime.datetime.now().astimezone()
     first = datetime.datetime.combine(now.date() - datetime.timedelta(7), datetime.time(), now.tzinfo)
     rows = [r for r in ([x for x in row if x[2] > first] for row in rows) if r]
-    if height:  # minus the date header (36 + 8 spacing)
-        row_h = max(8, min(row_h, (height - 44) / max(len(rows), 1)))
-    gap, font = min(6, row_h * 0.15), min(12, row_h * 0.45)
+    if height:  # rows share the card's height (minus the 36 + 8 date header): squeezed or stretched, no gap below
+        row_h = max(8, (height - 44) / max(len(rows), 1))
+    gap, font = min(6, row_h * 0.15), min(14, row_h * 0.45)
     days = min(max([(x[2] - first).days + 1 for r in rows for x in r], default=21), 63)
     width = days * day_px
     pos = lambda dt: min(max((dt - first).total_seconds() / 86400 * day_px, 0), width)
@@ -217,7 +245,7 @@ def banner_tile(pool, b, start, end):
             else f"Starts {start.astimezone():%d %b %H:%M} · until {end.astimezone():%d %b}")
     # NOTE: Chronicled lists a whole region's roster; only the first few are drawn.
     icons = ([item_icon(wiki.name_for(x), kind, 48) for x in b.get("featured", [])[:6]]
-             + [item_icon(wiki.name_for(x), kind, 34, 4) for x in b.get("featuredRare", [])[:5]])
+             + [item_icon(wiki.name_for(x), kind, 40, 4) for x in b.get("featuredRare", [])[:5]])
     art = wiki.banner_image(b)
     shade = lambda o: ft.Colors.with_opacity(o, ft.Colors.SURFACE_CONTAINER_HIGH)
     # The banner art fills the tile; a left-to-right fade keeps the text readable over it.
@@ -236,9 +264,11 @@ def banner_tile(pool, b, start, end):
         col={"xs": 12, "md": 6, "xl": 4})
 
 
-def portrait(src, rarity, size, fallback=ft.Icons.PERSON_ROUNDED):
-    """Game icon on its rarity backdrop, like the in-game character list."""
-    return ft.Container(ft.Image(src=wiki.image(src), width=size, height=size,
+def portrait(src, rarity, size, fallback=ft.Icons.PERSON_ROUNDED, fade=True):
+    """Game icon on its rarity backdrop, like the in-game character list. fade=False for icons already
+    cached on disk: dozens of fade-ins at once make a dialog feel sluggish."""
+    return ft.Container(ft.Image(src=wiki.image(src), width=size, height=size, fade_in_animation=FADE_IN if fade else None,
+                                 cache_width=decode(size),
                                  error_content=ft.Icon(fallback, size=size / 2)),
                         width=size, height=size, border_radius=size / 4, clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
                         gradient=ft.LinearGradient(begin=ft.Alignment.TOP_CENTER, end=ft.Alignment.BOTTOM_CENTER,
@@ -278,7 +308,7 @@ def pull_chip(f, hard):
     tag = {"won": ("W", theme.WON), "lost": ("L", theme.LOST), "guaranteed": ("G", theme.GOLD)}.get(f["outcome"])
     five = f["rank"] == 5
     parts = [
-        item_icon(f["name"], f["item_type"], size=24, rarity=f["rank"]),
+        item_icon(f["name"], f["item_type"], size=32, rarity=f["rank"]),
         ft.Text(f["name"], size=13, weight=ft.FontWeight.W_600, no_wrap=True, color=None if five else theme.PURPLE),
         ft.Text(str(f["pity"]), size=13, weight=ft.FontWeight.BOLD,
                 color=pity_color(f["pity"], hard if five else 10)),
@@ -391,27 +421,49 @@ def detail_head(page, phone, icon, rarity, name, sub, chips=(), accent=None, art
     return ft.Stack(layers, height=height)
 
 
+def pill_tabs(items, on_pick, selected=None):
+    """Pill tab bar: [(key, label)] or [(key, label, icon)], wrapping to more lines when narrow. Clicking a pill
+    fills it and calls on_pick(key); the bar's `data` is the picked key."""
+    row = ft.Row(spacing=6, run_spacing=6, wrap=True)
+
+    def paint(key):
+        row.data = key
+        for b in row.controls:
+            fg = ft.Colors.ON_PRIMARY if b.data == key else ft.Colors.ON_SURFACE_VARIANT
+            b.bgcolor = ft.Colors.PRIMARY if b.data == key else ft.Colors.SURFACE_CONTAINER_HIGHEST
+            for c in b.content.controls:
+                c.color = fg
+
+    def click(e):
+        paint(e.control.data)
+        row.update()
+        on_pick(e.control.data)
+    row.controls = [ft.Container(ft.Row(([ft.Icon(it[2], size=16)] if it[2:] and it[2] else [])
+                                        + [ft.Text(it[1], size=13, weight=ft.FontWeight.W_600)], spacing=6, tight=True),
+                                 data=it[0], border_radius=999, padding=ft.Padding.symmetric(horizontal=14, vertical=7),
+                                 on_click=click, animate=EASE) for it in items]
+    paint(items[0][0] if selected is None and items else selected)
+    return row
+
+
 def tab_view(sections, selected=0):
     """[(label, [controls])] -> pill tabs over a page that scrolls on its own; one section needs no bar.
     The view's `data` is the open tab. Hand-rolled: ft.Tabs renders as an error box inside an
     AlertDialog (Flet 1.0.3)."""
     page_box = ft.Container(padding=ft.Padding.only(left=20, top=12, right=20, bottom=20), expand=True)
-    bar = ft.Row(spacing=6, scroll=ft.ScrollMode.HIDDEN)
-    view = ft.Column([ft.Container(bar, padding=ft.Padding.only(left=20, top=14, right=20), visible=len(sections) > 1),
-                      page_box], spacing=0, expand=True)
 
-    def show(i, update=True):
+    def show(i):
         view.data = i
         page_box.content = ft.Column(sections[i][1], spacing=12, scroll=ft.ScrollMode.AUTO, horizontal_alignment=STRETCH)
-        for j, b in enumerate(bar.controls):
-            b.bgcolor = ft.Colors.PRIMARY if j == i else ft.Colors.SURFACE_CONTAINER_HIGHEST
-            b.content.color = ft.Colors.ON_PRIMARY if j == i else ft.Colors.ON_SURFACE_VARIANT
-        if update:
-            view.update()
-    bar.controls = [ft.Container(ft.Text(t, size=13, weight=ft.FontWeight.W_600), border_radius=999,
-                                 padding=ft.Padding.symmetric(horizontal=14, vertical=7),
-                                 on_click=lambda e, i=i: show(i)) for i, (t, _) in enumerate(sections)]
-    show(min(selected, len(sections) - 1), update=False)
+
+    def pick(i):
+        show(i)
+        page_box.update()
+    i = min(selected, len(sections) - 1)
+    bar = pill_tabs([(j, t) for j, (t, _) in enumerate(sections)], pick, i)
+    view = ft.Column([ft.Container(bar, padding=ft.Padding.only(left=20, top=14, right=20), visible=len(sections) > 1),
+                      page_box], spacing=0, expand=True)
+    show(i)
     return view
 
 

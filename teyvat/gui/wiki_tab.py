@@ -5,7 +5,8 @@ from teyvat import db, weblogin, wiki
 from teyvat.gui import theme
 from teyvat.gui.app import WIKI
 from teyvat.gui.theme import ELEMENT_COLORS, STRETCH, STYLE
-from teyvat.gui.widgets import (detail_dialog, detail_head, guide_view, loading_body, muted, panel_tile, pill, pill_select,
+from teyvat.gui.widgets import (detail_dialog, detail_head, guide_view, lift, loading_body, muted, panel_tile, pill, pill_select,
+                                pill_tabs,
                                 portrait, search_field, skeleton, skill_text, tab_view)
 
 
@@ -22,7 +23,10 @@ def build(app):
     # NOTE: tiles rendered a page at a time as you scroll (fewer on phones); switch to a virtualized GridView if it lags.
     # A page must overflow the window, or no scroll event ever loads the next: 144 = 12 rows even at 12 per row.
     WIKI_PAGE = 30 if phone else 144
-    wiki_state = {"cat": "Characters", "items": [], "limit": WIKI_PAGE, "done": set()}
+    # The filter each category is browsed by most: a tab row instead of a dropdown (Achievements: done or not).
+    TAB_KEYS = {"Characters": "character_vision", "Weapons": "weapon_type", "Artifacts": "filter_key_43",
+                "Enemies": "enemy_and_monster_type", "Collectibles": "collectible", "Achievements": "status"}
+    wiki_state = {"cat": "Characters", "items": [], "limit": WIKI_PAGE, "done": set(), "tab": "All"}
     wiki_search = search_field("Search", lambda e: show_wiki(reset=True))
     wiki_filters = ft.Row()
     wiki_sort = pill_select("Sort", [ft.DropdownOption("name", "Name"), ft.DropdownOption("rarity", "Rarity"),
@@ -41,7 +45,7 @@ def build(app):
 
     def wiki_tile(e, owned):
         r = wiki.rarity(e)
-        return ft.Container(ft.Column([
+        return lift(ft.Container(ft.Column([
             ft.Stack([portrait(e["icon"], r, tile_px, WIKI_CATS[wiki_state["cat"]]),
                       ft.Container(ft.Icon(ft.Icons.CHECK_CIRCLE_ROUNDED, size=18, color=WON), right=-4, top=-4,
                                    visible=owned)], width=tile_px, height=tile_px, clip_behavior=ft.ClipBehavior.NONE),
@@ -52,7 +56,7 @@ def build(app):
             padding=6 if phone else 8, border_radius=STYLE["radius"] - 4, bgcolor=STYLE["card_bg"],
             border=STYLE["border"], on_click=lambda ev: open_entry(e),
             # phones have no hover, so long tooltip text would only slow every redraw
-            tooltip=None if mobile else e["desc"][:400] or e["name"], col=tile_col)
+            tooltip=None if mobile else e["desc"][:400] or e["name"], col=tile_col))
 
     def entry_view(d, roles=(), weapon_rarity=None, selected=0):
         """A wiki page rendered in the app: one tab per section (attributes, talents, constellations, ...),
@@ -178,6 +182,8 @@ def build(app):
         cat, items = wiki_state["cat"], wiki_state["items"]
         q = (wiki_search.value or "").strip().lower()
         picks = {d.data: d.value for d in wiki_filters.controls if d.data and d.value != "All"}
+        if wiki_state["tab"] != "All":
+            picks[TAB_KEYS[cat]] = wiki_state["tab"]
         if cat == "Achievements":
             status = picks.pop("status", None)
             shown = [a for a in items if any(q in a.get(k, "").lower() for k in ("name", "desc", "where"))
@@ -231,15 +237,20 @@ def build(app):
         if cat == "Achievements":
             wiki_state["done"] = db.done_ids(conn)
             wiki_filters.controls = [
-                wiki_sort, wiki_dropdown("Category", sorted({a["category"] for a in items}), "category"),
-                wiki_dropdown("Status", ["Done", "To do"], "status")]
+                wiki_sort, wiki_dropdown("Category", sorted({a["category"] for a in items}), "category")]
+            tabs = ["To do", "Done"]
         else:
             keys = wiki.filters(items)
+            tabs = keys.pop(TAB_KEYS[cat], [])
+            if "★" in "".join(tabs):  # rarity tabs: best first
+                tabs = tabs[::-1]
             wiki_group.options = [ft.DropdownOption("none", "None")] + [ft.DropdownOption(k, wiki.label(k)) for k in keys]
             wiki_group.value = "none"
             wiki_filters.controls = [wiki_sort, wiki_group] + [wiki_dropdown(wiki.label(k), vs, k)
                                                                for k, vs in keys.items()]
         wiki_sort.visible = cat not in ("Achievements", "Enemies")
+        wiki_state["tab"] = "All"
+        wiki_sub.content = pill_tabs([("All", "All")] + [(t, t) for t in tabs], pick_tab)
         show_wiki(reset=True)
         if cat != "Achievements":  # keep the catalogue's pictures for offline use
             page.run_thread(wiki.cache_images, [e["icon"] for e in items])
@@ -247,27 +258,32 @@ def build(app):
             return f"{cat} updated."
 
     def pick_wiki_cat(cat):
-        wiki_state["cat"] = wiki_cat.value = cat
-        wiki_cat.leading_icon = WIKI_CATS[cat]
+        wiki_state["cat"] = cat
         wiki_search.value = ""
         page.run_thread(load_wiki)
 
-    # Category bar: a full-width dropdown on phones, segmented pills across the page on PC.
-    wiki_cat = ft.Dropdown(label="Category", value="Characters", leading_icon=WIKI_CATS["Characters"],
-                           expand=True, dense=True, filled=True, border_radius=999,
-                           fill_color=ft.Colors.SURFACE_CONTAINER_HIGH, border_width=0,
-                           options=[ft.DropdownOption(k, k, leading_icon=i) for k, i in WIKI_CATS.items()],
-                           on_select=lambda e: pick_wiki_cat(e.control.value))
-    wiki_tabs = ft.SegmentedButton(selected=["Characters"], show_selected_icon=False, expand=True,
-                                   segments=[ft.Segment(k, label=k, icon=i) for k, i in WIKI_CATS.items()],
-                                   on_change=lambda e: pick_wiki_cat(e.control.selected[0]))
+    def pick_tab(t):
+        wiki_state["tab"] = t
+        show_wiki(reset=True)
+
+    # Two tab rows: the category, then its main filter (element, weapon type, ...); the other filters
+    # hide behind the Filters button.
+    wiki_tabs = pill_tabs([(k, k, i) for k, i in WIKI_CATS.items()], pick_wiki_cat)
+    wiki_sub = ft.Container()
     wiki_refresh = ft.IconButton(ft.Icons.REFRESH_ROUNDED, tooltip="Download again",
                                  on_click=guarded(lambda: load_wiki(refresh=True)))
-    wiki_bar = filter_bar([wiki_search, wiki_refresh], wiki_filters)
+
+    def toggle_filters(e):
+        wiki_filters.visible = filters_btn.selected = not wiki_filters.visible
+        wiki_bar.update()
+    filters_btn = ft.IconButton(ft.Icons.TUNE_ROUNDED, tooltip="More filters and sorting", on_click=toggle_filters,
+                                selected=False, style=ft.ButtonStyle(bgcolor={ft.ControlState.SELECTED: ft.Colors.PRIMARY_CONTAINER}))
+    wiki_filters.visible = False
+    wiki_bar = filter_bar([wiki_search, filters_btn, wiki_refresh], wiki_filters)
     for d in (wiki_sort, wiki_group):
         d.width, d.expand = (app.pill_w(), False) if phone else (None, True)
     wiki_body = ft.Column([
-        ft.Row([wiki_cat if phone else wiki_tabs]), wiki_bar,
+        wiki_tabs, wiki_sub, wiki_bar,
         wiki_count, wiki_grid,
     ], spacing=12, horizontal_alignment=STRETCH)
     app.load_wiki, app.on_page_scroll = load_wiki, on_page_scroll

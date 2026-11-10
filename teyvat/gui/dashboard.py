@@ -6,7 +6,7 @@ import time
 import flet as ft
 
 from teyvat import background, db, hoyolab, vault, wiki
-from teyvat.gui import theme
+from teyvat.gui import endgame, theme
 from teyvat.gui.theme import STRETCH
 from teyvat.gui.widgets import bar, card, countdown, item_icon, label, muted, reward_tile, skeleton, today
 
@@ -79,7 +79,8 @@ def build(app):
             w, h = app.content_size()
             cols = rewards_grid.columns
             rows = -(-len(m["awards"]) // cols)
-            height = max(84, int((h - 214) / rows) - 6)  # minus head card, card padding and its header row (measured)
+            h -= 214 + (230 if endgame_card.visible else 0)  # head card, card padding, header row; endgame card + gap
+            height = max(84, int(h / rows) - 6)  # NOTE: the endgame height is estimated; measure it if tiles overflow
             width = ((w - 16) / 2 - 42) / cols - 6
             icon = int(max(32, min(72, height - 48, width - 16)))
         rewards_grid.controls = [reward_tile(i + 1, a, i < signed, i == current and not m["error"], icon, height)
@@ -208,6 +209,8 @@ def build(app):
                 if app.desktop:  # the window may be minimised; mobile only gets the snackbar
                     background.notify("Teyvault", "\n".join(news))
         page.update()
+        if not quiet:  # the timed refresh leaves the endgame records alone (fetched once per account anyway)
+            load_endgame(role)
 
     # Primogems: no API returns the balance, so the player types it in (e.g. before closing the game);
     # the saved counts are their ledger, each with the change since the one before.
@@ -366,18 +369,19 @@ def build(app):
                               spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER),
                        redeem_results, padding=ft.Padding.symmetric(horizontal=16, vertical=16),
                        width=None if phone else 420)
+    endgame_card, load_endgame, reset_endgame = endgame.build(app)
     today_locked = signin_prompt("Sign in to HoYoLAB to check in, see your rewards and redeem codes.")
 
     if phone:
         today_view = ft.Column([page_head(0, sub=dash_line, inline=True), resin_card, today_locked, rewards_card, domains_card,
-                                redeem_card], spacing=16, horizontal_alignment=STRETCH)
+                                endgame_card, redeem_card], spacing=16, horizontal_alignment=STRETCH)
     else:
         today_view = ft.Column([
             page_head(0, redeem_card, sub=dash_line, inline=True),
             ft.Row([
                 ft.Column([resin_card, today_locked, domains_card], spacing=16, horizontal_alignment=STRETCH,
                           expand=True),
-                ft.Column([rewards_card], spacing=16, horizontal_alignment=STRETCH, expand=True),
+                ft.Column([rewards_card, endgame_card], spacing=16, horizontal_alignment=STRETCH, expand=True),
             ], spacing=16, expand=True, vertical_alignment=STRETCH),
         ], spacing=16, horizontal_alignment=STRETCH, expand=True)
 
@@ -387,6 +391,7 @@ def build(app):
         today_locked.visible = not on
         if not on:
             rewards_card.visible = resin_card.visible = False
+            reset_endgame()
 
     def fit():
         if len(resin_strip.controls) > 1:  # not the skeleton or an error card
@@ -404,4 +409,5 @@ def build(app):
         _live["thread"].start()
     app.do_checkin, app.show_checkin, app.show_auto_note = do_checkin, show_checkin, show_auto_note
     app.show_dashboard_auth = show_auth
+    app.fit_dashboard = fit if not phone else lambda: None
     return today_view

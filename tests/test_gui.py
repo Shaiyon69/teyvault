@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 import teyvat
-from teyvat.gui import theme, widgets
+from teyvat.gui import endgame, theme, widgets
 
 
 class TestMetaTiers(unittest.TestCase):
@@ -26,6 +26,17 @@ class TestVersion(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestEndgameSummary(unittest.TestCase):
+    def test_rows(self):
+        self.assertEqual(endgame.summary("abyss", {"floors": [1], "total_star": 33, "max_floor": "12-3", "previous": True}),
+                         ("33 ★", "Floor 12-3 · previous cycle"))
+        self.assertIsNone(endgame.summary("abyss", {"floors": []})[0])
+        self.assertEqual(endgame.summary("theater", {"data": [{"has_data": False}, {"has_data": True, "stat": {
+            "medal_num": 10, "max_round_id": 10, "difficulty_id": 4}}]}), ("10 ★", "Act 10 · Visionary"))
+        self.assertIsNone(endgame.summary("onslaught", {"data": [{"single": {"has_data": False}}]})[0])
+        self.assertIsNone(endgame.summary("theater", {"error": "offline"})[0])
 
 
 class TestThemeSwitch(unittest.TestCase):

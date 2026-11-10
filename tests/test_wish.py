@@ -25,6 +25,13 @@ class TestAuthkey(unittest.TestCase):
         self.assertEqual(params["authkey"], "NEW+key")
         self.assertIn("hoyoverse.com/gacha_info", endpoint)
 
+    def test_link_from_pasted_error_page(self):
+        """Phones copy the whole error page, not just the link."""
+        text = ("Webpage not available\nThe webpage at https://gs.hoyoverse.com/genshin/event/e20190909gacha-v3/"
+                "index.html?authkey_ver=1&authkey=K%2Fx&game_biz=hk4e_global#/log could not be loaded")
+        self.assertEqual(wish.api_params(wish.extract_gacha_url(text.encode()))[1]["authkey"], "K/x")
+        self.assertIsNone(wish.extract_gacha_url(b"hello"))
+
     def test_game_dir_from_log(self):
         log = ("[Subsystems] Discovering subsystems at path "
                "C:/Program Files/HoYoPlay/games/Genshin Impact game/GenshinImpact_Data/UnitySubsystems\n")
@@ -59,24 +66,6 @@ class TestStats(unittest.TestCase):
         self.assertTrue(wish.icon_url("Wolf's Gravestone", "Weapon").endswith("/weapons/wolfs_gravestone.png"))
         self.assertTrue(wish.icon_url("Freedom-Sworn", "Weapon").endswith("/weapons/freedom-sworn.png"))
         self.assertTrue(wish.icon_url('"The Catch"', "Weapon").endswith("/weapons/the_catch.png"))
-
-
-class TestOdds(unittest.TestCase):
-    def test_pity_bounds(self):
-        self.assertEqual(wish.odds(0), 0)
-        self.assertAlmostEqual(wish.odds(90, guaranteed=True), 1)
-        self.assertAlmostEqual(wish.odds(180), 1)
-        self.assertAlmostEqual(wish.odds(1, pity=89, guaranteed=True), 1)
-        self.assertAlmostEqual(wish.odds(160, pool="weapon"), 1)  # path fills after one miss
-        self.assertLess(wish.odds(179), 1)
-        self.assertLess(wish.odds(180, copies=2), 1)
-
-    def test_more_pulls_never_hurt(self):
-        prev = 0
-        for n in range(0, 200, 10):
-            cur = wish.odds(n, copies=2)
-            self.assertGreaterEqual(cur, prev)
-            prev = cur
 
 
 class TestStorage(unittest.TestCase):

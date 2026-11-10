@@ -8,8 +8,8 @@ from teyvat import db, hoyolab, vault, wiki, wish
 from teyvat.gui import theme
 from teyvat.gui.app import CHARACTERS
 from teyvat.gui.theme import ELEMENT_COLORS, PRYDWEN, STRETCH, STYLE, TIER_COLORS
-from teyvat.gui.widgets import (card, clean, crit_value, detail_dialog, detail_head, guide_view, label, loading_body,
-                                meta_ratings, muted, panel_tile, pill, pill_select, portrait, search_field, skeleton,
+from teyvat.gui.widgets import (card, clean, crit_value, detail_dialog, detail_head, guide_view, label, lift, loading_body,
+                                meta_ratings, muted, panel_tile, pill, pill_select, pill_tabs, portrait, search_field, skeleton,
                                 skill_text, tab_view)
 
 WEAPON_TYPES = {1: "Sword", 10: "Catalyst", 11: "Claymore", 12: "Bow", 13: "Polearm"}
@@ -28,7 +28,7 @@ def build(app):
     builds = {}  # character id -> (detail, property_map); fetched on first open, one call per character
     calcs = {}  # character id -> calculator sync (talent group ids, weapon); fetched on the first Calculate
 
-    roster = {"chars": [], "role": None, "release": {}, "wiki": {}}  # last loaded list, re-filtered without another request
+    roster = {"chars": [], "role": None, "release": {}, "wiki": {}, "element": "All"}  # last loaded list, re-filtered without another request
     chars_count = muted("")
     chars_grid = ft.Column(spacing=12, horizontal_alignment=STRETCH)
     META_ROLES = ("On-field DPS", "Off-field DPS", "Support")
@@ -37,7 +37,6 @@ def build(app):
         return pill_select(name, [ft.DropdownOption("All")] + [ft.DropdownOption(k, v) for k, v in options],
                            on_select=lambda e: show_chars(), width=width)
 
-    f_element = char_filter("Element", [(k, k) for k in ELEMENT_COLORS])
     f_weapon = char_filter("Weapon", [(v, v) for v in WEAPON_TYPES.values()])
     f_rarity = char_filter("Rarity", [("5", "5★"), ("4", "4★")], width=120)
     f_tier = char_filter("Meta tier", [(t, t) for t in PRYDWEN["tiers"]] + [("-", "Unrated")])
@@ -55,7 +54,7 @@ def build(app):
         ("rarity", "Rarity"), ("region", "Region"), ("stat", "Ascension stat"), ("tier", "Meta tier"),
         ("role", "Meta role"))], "none", lambda e: show_chars())
     f_search = search_field("Search characters", lambda e: show_chars())
-    pills = [f_element, f_weapon, f_rarity, f_region, f_stat, f_tier, f_role, f_sort, f_group]
+    pills = [f_weapon, f_rarity, f_region, f_stat, f_tier, f_role, f_sort, f_group]
     if phone:
         pill_row = ft.Row(pills)
     else:  # nine pills squeezed into one line truncate in a window; wrap to fewer, wider ones per row
@@ -63,7 +62,21 @@ def build(app):
         for d in pills:
             d.col = {k: 12 * n // min(n, per) for k, per in {"xs": 3, "md": 4, "lg": 5, "xl": 7, "xxl": n}.items()}
         pill_row = ft.ResponsiveRow(pills, columns=12 * n, run_spacing=8)
-    chars_filters = filter_bar([f_search], pill_row)
+    # Element is a tab row (the filter people use most); the rest hide behind the Filters button.
+    def toggle_filters(e):
+        pill_row.visible = not pill_row.visible
+        filters_btn.selected = pill_row.visible
+        chars_filters.update()
+    filters_btn = ft.IconButton(ft.Icons.TUNE_ROUNDED, tooltip="More filters and sorting", on_click=toggle_filters,
+                                selected_icon=ft.Icons.TUNE_ROUNDED, selected=False,
+                                style=ft.ButtonStyle(bgcolor={ft.ControlState.SELECTED: ft.Colors.PRIMARY_CONTAINER}))
+    pill_row.visible = False
+    chars_filters = filter_bar([f_search, filters_btn], pill_row)
+    element_tabs = ft.Container()
+
+    def pick_element(k):
+        roster["element"] = k
+        show_chars()
 
     def show_chars():
         """Apply the filter bar to the loaded roster. Tier and role filters match the same rating, so
@@ -81,7 +94,7 @@ def build(app):
 
         q = (f_search.value or "").strip().lower()
         shown = [c for c in roster["chars"] if q in c["name"].lower()
-                 and any_(f_element, c["element"]) and any_(f_weapon, WEAPON_TYPES.get(c["weapon_type"]))
+                 and roster["element"] in ("All", c["element"]) and any_(f_weapon, WEAPON_TYPES.get(c["weapon_type"]))
                  and any_(f_rarity, str(c["rarity"])) and any_(f_region, wiki_of(c, "character_region"))
                  and any_(f_stat, wiki_of(c, "character_property")) and meta_ok(c)]
         if f_sort.value == "tier":
@@ -133,7 +146,7 @@ def build(app):
         # Phones: level, constellation, weapon and refinement on one line to keep the tile short.
         info = ([ft.Row([weapon, muted(f"{lv} · {refine}", size=11)], spacing=2, tight=True)] if phone else
                 [muted(lv, size=12), ft.Row([weapon, muted(refine, size=12)], spacing=2, tight=True)])
-        return ft.Container(ft.Column([
+        return lift(ft.Container(ft.Column([
             ft.Stack([portrait(c["icon"], c["rarity"], tile_px), *badge],
                      width=tile_px, height=tile_px, clip_behavior=ft.ClipBehavior.NONE),
             ft.Text(c["name"], size=12 if phone else 14, weight=ft.FontWeight.W_600, no_wrap=True,
@@ -143,7 +156,7 @@ def build(app):
             padding=6 if phone else 10, border_radius=STYLE["radius"] - 4, bgcolor=STYLE["card_bg"],
             border=STYLE["border"],
             tooltip=None if mobile else f"{c['name']} · {c['element']} · {w['name']}",
-            on_click=lambda e: open_build(c, role), col=tile_col)
+            on_click=lambda e: open_build(c, role), col=tile_col))
 
     def compute(role, goals):
         """HoYoLAB calculator for [(character, (level, talents, weapon))]: (materials, bag synced?).
@@ -230,10 +243,11 @@ def build(app):
     planner_chips = ft.Row(wrap=True, spacing=8, run_spacing=8)
     planner_result = ft.Column(spacing=8, horizontal_alignment=STRETCH)
     planner_calc = ft.FilledButton("Calculate all", icon=ft.Icons.CALCULATE_ROUNDED)
+    calc_row = ft.Row([planner_calc])  # a Row so the button keeps its own width
     planner_card = card(muted("Total materials for several characters. Open a character, set targets on its "
                               "Materials tab and press Add to planner. Today's domains on the Dashboard put them first.",
                               size=12),
-                        planner_chips, ft.Row([planner_calc]), planner_result, title="Farming planner")
+                        planner_chips, calc_row, planner_result, title="Farming planner")
 
     def show_planner():
         role = roster["role"]
@@ -256,12 +270,13 @@ def build(app):
             ft.IconButton(ft.Icons.CLOSE_ROUNDED, icon_size=16, tooltip="Remove", on_click=remove(cid)),
         ], spacing=8, tight=True), padding=ft.Padding.only(left=6, right=2, top=4, bottom=4),
             border_radius=STYLE["radius"] - 6, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH) for cid, g in plan.items()]
-        planner_calc.visible = bool(plan)
+        calc_row.visible = planner_chips.visible = bool(plan)  # hidden, empty rows add no gap
+        planner_result.visible = bool(plan and planner_result.controls)
 
     def calculate_plan():
         role, owned = roster["role"], {str(c["id"]): c for c in roster["chars"]}
         goals = [(owned[cid], tuple(g["targets"])) for cid, g in load_plan(role).items() if cid in owned]
-        planner_result.controls = [skeleton(3, height=56)]
+        planner_result.controls, planner_result.visible = [skeleton(3, height=56)], True
         planner_result.update()
         try:
             planner_result.controls = [mats_grid(*compute(role, goals))]
@@ -394,7 +409,11 @@ def build(app):
         roster.update(chars=chars, role=role, release=release, wiki=info)
         planner_result.controls = []
         show_planner()
-        chars_body.controls = [planner_card, chars_filters, chars_count, chars_grid]
+        count = {k: sum(c["element"] == k for c in chars) for k in ELEMENT_COLORS}
+        roster["element"] = "All"
+        element_tabs.content = pill_tabs([("All", f"All · {len(chars)}")]
+                                         + [(k, f"{k} · {n}") for k, n in count.items() if n], pick_element)
+        chars_body.controls = [planner_card, element_tabs, chars_filters, chars_count, chars_grid]
         show_chars()
         # Roster shows right away (icons not cached yet load from the web); keep them for next time.
         page.run_thread(wiki.cache_images, [u for c in chars for u in (c["icon"], c["weapon"]["icon"])])

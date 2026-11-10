@@ -1,5 +1,6 @@
 """What every tab shares: the page, the layout flags and the helpers built on them."""
 import importlib.util
+import os
 
 import flet as ft
 
@@ -30,10 +31,13 @@ class App:
     def __init__(self, page: ft.Page):
         self.page = page
         self.mobile = page.platform in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS)
+        if os.environ.get("TEYVAULT_PHONE") and not self.mobile:  # dev: preview the phone layout in a phone-sized window
+            self.mobile = True
+            page.window.width, page.window.height = 412, 892
         self.desktop = not self.mobile and not page.web
         # Tablets (shortest side 600 dp or more) get the PC layout: sidebar, wide tiles, filter rows.
         # NOTE: decided once at startup; a foldable that unfolds mid-session keeps the phone layout until restart.
-        self.phone = phone = self.mobile and min(page.width or 0, page.height or 0) < 600
+        self.phone = phone = self.mobile and (min(page.width or 0, page.height or 0) < 600 or bool(os.environ.get("TEYVAULT_PHONE")))
         # Character/wiki tiles fill the row at any width (ResponsiveRow) instead of leaving a gap on the right.
         # Phones: three to a row, more in landscape. PC: 72 columns so window-size steps stay whole numbers
         # (the sidebar takes ~280 px, so e.g. a 1280 px window shows 9 per row).

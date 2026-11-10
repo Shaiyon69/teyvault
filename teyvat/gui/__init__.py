@@ -1,6 +1,7 @@
 """Teyvault GUI. One Flet app for Windows, Android and iOS, built on the same core as the CLI.
 main() sets the theme, builds each tab (one module per tab) and puts them in the navigation shell."""
 import datetime
+import time
 
 import flet as ft
 
@@ -8,15 +9,16 @@ from teyvat import background, db, vault, wiki, wish
 from teyvat.gui import account, characters, dashboard, events, settings, wiki_tab, wishes, world
 from teyvat.gui.app import ACCOUNT, SECTIONS, SETTINGS, App
 from teyvat.gui.dashboard import PRIMOGEM_ICON
-from teyvat.gui.theme import (APP, APP_AUTHOR, APP_REPO, FONTS, PRYDWEN, SEEDS, STRETCH, STYLE, make_theme, use_palette,
-                              use_style)
+from teyvat.gui.theme import (APP, APP_AUTHOR, APP_REPO, FONTS, NIRI, PRYDWEN, SEEDS, STRETCH, STYLE, make_theme,
+                              use_palette, use_style)
 from teyvat.gui.widgets import logo_badge, muted, title_bar_for, today
 
 GUTTER = 12  # PC: room right of the cards for the scrollbar, taken out of the panel's right padding
 
 
-def main(page: ft.Page, start=0):
-    """Build the window. A theme change calls it again (app.restart) with the tab to reopen as `start`."""
+def main(page: ft.Page, start=None):
+    """Build the window. A theme change calls it again (app.restart) with the tab to reopen as `start`;
+    a fresh launch (None) opens the "Open on" tab from Settings."""
     page.title = APP
     page.controls.clear()
     page.appbar = page.navigation_bar = None
@@ -29,6 +31,8 @@ def main(page: ft.Page, start=0):
     app.prefs = theme, style, seed
     # The palette and style must be set before any control is built: cards read them once.
     light = theme == "light" or theme == "system" and page.platform_brightness == ft.Brightness.LIGHT
+    if style == "niri" and NIRI:  # the system colors are one mode; the light/dark setting doesn't apply
+        light = NIRI[3]
     use_palette(light)
     use_style(style, light, mobile)
     page.fonts = FONTS
@@ -51,16 +55,19 @@ def main(page: ft.Page, start=0):
     section_title = ft.Text(SECTIONS[0][0], size=20, weight=ft.FontWeight.BOLD)
 
     def select(i):
-        current["i"] = i
+        prev, current["i"] = current["i"], i
         ensure_loaded(i)
         if i < len(nav.destinations):  # the phone bottom bar has no Settings; it keeps the last tab lit
             nav.selected_index = i
         section_title.value = SECTIONS[i][0]
         for j, v in enumerate(views):
             v.visible = j == i
-        if not phone:
+        # Only what changed: page.update() would diff every mounted tab (thousands of controls) per click.
+        changed = [nav, views[prev], views[i]] + [section_title] * phone  # the title is the phone app bar's
+        if not phone and content.visible != (i > 1):
             content.visible = i > 1
-        page.update()
+            changed.append(content)
+        page.update(*changed)
 
     app.select = select
     status_chip = ft.Container(
@@ -78,8 +85,14 @@ def main(page: ft.Page, start=0):
     if phone:
         # Icons only (the label is the long-press tooltip), so the bar stays slim.
         nav = ft.NavigationBar(on_change=on_change, label_behavior=ft.NavigationBarLabelBehavior.ALWAYS_HIDE,
-                               height=64, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH, destinations=[
-            ft.NavigationBarDestination(icon=icon, selected_icon=sel, label=label)
+                               height=64, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGH,
+                               # Material's indicator is 64 px wide (any shape but a circle), wider than a slot of the
+                               # 6-tab floating bar (54-60 px on phones), so the end ones got cut by its rounded edge.
+                               # The selected icon draws its own squircle instead; the circle only shapes the ripple.
+                               indicator_shape=ft.CircleBorder(), indicator_color=ft.Colors.TRANSPARENT, destinations=[
+            ft.NavigationBarDestination(icon=icon, label=label, selected_icon=ft.Container(
+                ft.Icon(sel, color=ft.Colors.ON_SECONDARY_CONTAINER), width=44, height=40, border_radius=14,
+                bgcolor=ft.Colors.SECONDARY_CONTAINER, alignment=ft.Alignment.CENTER))
             for label, icon, sel in SECTIONS[:ACCOUNT]])
         page.appbar = ft.AppBar(title=section_title, bgcolor=ft.Colors.SURFACE, center_title=False,
                                 actions=[ft.IconButton(ft.Icons.SETTINGS_OUTLINED, tooltip="Settings",
@@ -88,7 +101,7 @@ def main(page: ft.Page, start=0):
         # Floating pill bar over the content; the scroll's bottom padding keeps the last card clear of it.
         scroll = ft.Column([*views, ft.Container(height=80)], scroll=ft.ScrollMode.AUTO, spacing=16,
                            on_scroll=app.on_page_scroll, scroll_interval=200, horizontal_alignment=STRETCH)
-        floating = ft.Container(nav, left=24, right=24, bottom=8, border_radius=32,
+        floating = ft.Container(nav, left=24, right=24, bottom=8, border_radius=24,  # ~ the squircle's 14 + its 12 px inset
                                 clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
                                 shadow=ft.BoxShadow(blur_radius=16, color=ft.Colors.with_opacity(0.3, ft.Colors.BLACK)))
         body = ft.SafeArea(ft.Stack([scroll, floating], fit=ft.StackFit.EXPAND, expand=True), expand=True, minimum_padding=16)
@@ -145,7 +158,17 @@ def main(page: ft.Page, start=0):
         if mobile:  # tablet: keep clear of the status and gesture bars
             body = ft.SafeArea(body, expand=True)
 
+    resizing = {"n": 0}
+
     def on_resize(e):
+        """Dragging the window edge fires dozens of events; refit once it has paused (each fit rebuilds tiles)."""
+        resizing["n"] += 1
+        page.run_thread(refit, e, resizing["n"])
+
+    def refit(e, n):
+        time.sleep(0.12)
+        if n != resizing["n"]:  # a newer resize event is pending
+            return
         if not phone and nav.extended != wide_rail():
             fit_rail()
         flow_regions(e)
@@ -175,8 +198,9 @@ def main(page: ft.Page, start=0):
     show_auth()
     page.add(body)
     refresh_stats()
-    if start:
-        select(start)
+    first = start if start is not None else int(db.get_meta(db.connect(), "start_tab", "0"))
+    if 0 < first < len(views):
+        select(first)
 
     last = db.get_meta(db.connect(), "last_checkin")
     app.show_checkin(last)
@@ -206,7 +230,7 @@ def main(page: ft.Page, start=0):
 
     def startup():
         # One request at a time, like a person using the website, never a burst.
-        if start:  # theme change: the first run already refreshed and prefetched everything
+        if start is not None:  # theme change: the first run already refreshed and prefetched everything
             app.load_rewards()
             app.load_profiles()
             app.load_domains()

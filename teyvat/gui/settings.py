@@ -4,9 +4,9 @@ import os
 
 import flet as ft
 
-from teyvat import __version__, background, db, lansync, wish
+from teyvat import __version__, background, db, lansync, wiki, wish
 from teyvat.gui import theme
-from teyvat.gui.app import CHARACTERS, EVENTS, SETTINGS, WISHES, WORLD
+from teyvat.gui.app import CHARACTERS, EVENTS, SECTIONS, SETTINGS, WISHES, WORLD
 from teyvat.gui.theme import APP, APP_AUTHOR, APP_REPO, SEEDS, STRETCH, STYLES, THEMES
 from teyvat.gui.widgets import card, logo_badge, muted
 
@@ -41,6 +41,10 @@ def build(app):
         return ("Teyvault now checks in, redeems codes and sends alerts every hour, even when closed." if on
                 else "Background task removed.")
 
+    def test_notify():
+        background.notify(APP, "Notifications work. Resin and expedition alerts will look like this.")
+        return "Sent. Nothing showed? Check Windows Settings > System > Notifications."
+
     # Windows only: Task Scheduler runs the CLI hourly; phones have no such hook.
     task_switch = ft.Switch(value=background.scheduled(), on_change=guarded(set_task))
 
@@ -69,21 +73,30 @@ def build(app):
 
     account_pick = ft.Dropdown(label="Game account", width=min(320, (page.width or 360) - 72) if phone else 320, dense=True, filled=True, border_radius=14,
                                on_select=set_account)
-    account_row = ft.Column([muted("Which account World, Characters and Wishes show first."), account_pick],
-                            spacing=8, visible=False)
-    prefs_card = card(
-        labeled(ft.Switch(value=app.auto_on(), on_change=set_auto_checkin), "Check in automatically when Teyvault opens"),
-        switch("auto_redeem", "Redeem new promo codes automatically"),
-        switch("alerts", "Alert me when resin is almost full, expeditions are back or realm currency is full"),
-        labeled(task_switch, "Run in the background every hour, even when Teyvault is closed",
+    account_pick.tooltip = "Which account World, Characters and Wishes show first"
+    account_pick.visible = False  # shown once there is more than one game account
+    auto_card = card(
+        labeled(ft.Switch(value=app.auto_on(), on_change=set_auto_checkin), "Check in when Teyvault opens"),
+        switch("auto_redeem", "Redeem new promo codes"),
+        switch("alerts", "Alert when resin, expeditions or realm currency need you"),
+        labeled(task_switch, "Run hourly in the background, even when closed",
                 visible=app.desktop and os.name == "nt"),
+        ft.Row([ft.TextButton("Send a test notification", icon=ft.Icons.NOTIFICATIONS_ACTIVE_ROUNDED,
+                              on_click=guarded(test_notify))], visible=app.desktop and os.name == "nt"),
+        title="Automation", col={"xs": 12, "lg": 6})
+    style_pick.tooltip = ("Clean: flat grey layers. Classic: the original purple look. Material You: Google's tonal "
+                          "colors. Glass: frosted cards. Nothing: black, white and one red.")
+    look_card = card(
         ft.Row([ft.Dropdown(label="Mode", value=mode, width=220, dense=True, filled=True, border_radius=14,
                             options=[ft.DropdownOption(k, v) for k, v in THEMES.items()], on_select=set_pref("theme")),
                 style_pick, seed_pick], wrap=True, spacing=12, run_spacing=12),
-        muted("Clean: flat grey layers. Classic: the original purple look. Material You: Google's tonal colors. Glass: frosted, translucent "
-              "cards. Nothing: black, white and one red.", size=12),
-        account_row,
-        title="Preferences")
+        ft.Row([ft.Dropdown(label="Open on", value=db.get_meta(db.connect(), "start_tab", "0"), width=220, dense=True,
+                            filled=True, border_radius=14, tooltip="The tab Teyvault shows when it starts",
+                            options=[ft.DropdownOption(str(i), t, leading_icon=ft.Icon(icon))
+                                     for i, (t, _, icon) in enumerate(SECTIONS[:SETTINGS])],
+                            on_select=lambda e: db.set_meta(db.connect(), "start_tab", e.control.value)),
+                account_pick], wrap=True, spacing=12, run_spacing=12),
+        title="Display", col={"xs": 12, "lg": 6})
 
     # Phone sync: the PC serves its wish history on the Wi-Fi, the phone pulls it with a one-time PIN.
     share = {"server": None}
@@ -126,17 +139,15 @@ def build(app):
         return f"Received {added} new wishes."
 
     phone_card = card(
-        muted("On Teyvault for PC, open Settings > Phone sync and press Start sharing, then enter the address "
-              "and PIN it shows. Both devices must be on the same Wi-Fi. Only wish history is sent, never "
-              "your sign-in."),
+        muted("On the PC app press Settings > Phone sync > Start sharing, then enter its address and PIN. Same "
+              "Wi-Fi only; wish history only, never your sign-in.", size=13),
         pc_addr, ft.Row([pc_pin, ft.FilledButton("Receive", icon=ft.Icons.DOWNLOAD_ROUNDED, on_click=guarded(do_receive))],
                         spacing=12, vertical_alignment=ft.CrossAxisAlignment.START),
-        title="Receive from PC") if mobile else card(
-        muted("Send your wish history to Teyvault on your phone. Both devices must be on the same Wi-Fi. "
-              "On the phone, open Settings > Receive from PC and enter the address and PIN below. Only "
-              "wish history is sent, never your sign-in. Sharing stops after 5 wrong PINs."),
+        title="Receive from PC", col={"xs": 12, "lg": 6}) if mobile else card(
+        muted("Send your wish history to the phone app (Settings > Receive from PC) on the same Wi-Fi. Wish "
+              "history only, never your sign-in; sharing stops after 5 wrong PINs.", size=13),
         share_info, ft.Row([share_btn]),
-        title="Phone sync")
+        title="Phone sync", col={"xs": 12, "lg": 6})
 
     del_count = ft.Text(weight=ft.FontWeight.W_600, color=ft.Colors.ERROR)
     del_ok = ft.Checkbox(label="I understand this cannot be undone")
@@ -188,25 +199,61 @@ def build(app):
             actions=[ft.TextButton("Cancel", on_click=lambda e: page.pop_dialog()), del_btn]))
 
     data_card = card(
-        muted("Wish history is stored in:"),
-        ft.Text(str(db.default_path()), selectable=True, size=13, font_family="monospace"),
-        ft.Row([ft.FilledTonalButton("Import file", icon=ft.Icons.FILE_OPEN_ROUNDED, on_click=app.do_import,
+        ft.Text(str(db.default_path()), selectable=True, size=12, font_family="monospace",
+                color=ft.Colors.ON_SURFACE_VARIANT, tooltip="Where your wish history is stored"),
+        ft.Row([ft.FilledTonalButton("Import", icon=ft.Icons.FILE_OPEN_ROUNDED, on_click=app.do_import,
                                      tooltip="UIGF JSON or Excel from another wish tracker"),
-                ft.OutlinedButton("Export UIGF", icon=ft.Icons.SAVE_ALT_ROUNDED, on_click=app.do_export),
-                ft.OutlinedButton("Export Excel", icon=ft.Icons.TABLE_VIEW_ROUNDED, on_click=app.do_export_xlsx)],
+                ft.OutlinedButton("UIGF", icon=ft.Icons.SAVE_ALT_ROUNDED, on_click=app.do_export,
+                                  tooltip="Export as UIGF JSON"),
+                ft.OutlinedButton("Excel", icon=ft.Icons.TABLE_VIEW_ROUNDED, on_click=app.do_export_xlsx,
+                                  tooltip="Export as Excel"),
+                ft.TextButton("Delete", icon=ft.Icons.DELETE_OUTLINE_ROUNDED, on_click=confirm_delete,
+                              tooltip="Delete wish history", style=ft.ButtonStyle(color=ft.Colors.ERROR))],
                wrap=True, spacing=8, run_spacing=8),
-        ft.Row([ft.OutlinedButton("Delete wish history", icon=ft.Icons.DELETE_OUTLINE_ROUNDED, on_click=confirm_delete,
-                                  style=ft.ButtonStyle(color=ft.Colors.ERROR))]),
-        title="Your data")
+        title="Your data", col={"xs": 12, "lg": 6})
 
-    about_card = card(
-        ft.Row([logo_badge(), ft.Column([ft.Text(f"{APP} {__version__}", size=16, weight=ft.FontWeight.W_600),
-                                         muted(f"Made by {APP_AUTHOR}. Free and open source.", size=13)],
-                                        spacing=2, expand=True)], spacing=12),
-        ft.Row([ft.OutlinedButton("Source code on GitHub", icon=ft.Icons.CODE_ROUNDED, url=APP_REPO)]),
-        muted("Not affiliated with HoYoverse. Genshin Impact content and images belong to HoYoverse.", size=12),
-        title="About")
+    # Storage: cached catalogue answers and images; clearing them is the fix for stale or broken pictures.
+    cache_label = muted("", size=13)
 
-    app.account_pick, app.account_row = account_pick, account_row
-    return ft.Column([page_head(SETTINGS), prefs_card, phone_card, data_card, about_card], spacing=16,
-                              horizontal_alignment=STRETCH)
+    def show_cache_size():
+        cache_label.value = f"Images on this device: {wiki.cache_size() / 1e6:,.1f} MB"
+
+    def clear(images):
+        def run():
+            wiki.clear_cache(db.connect(), images)
+            show_cache_size()
+            loaded.difference_update({EVENTS, WISHES, WORLD, CHARACTERS})
+            page.update()
+            return ("Images cleared; they download again as you browse." if images else
+                    "Game data cleared; tabs fetch fresh copies when opened.")
+        return guarded(run)
+
+    show_cache_size()
+    storage_card = card(
+        cache_label,
+        muted("Wiki, events, banners and domain data are cached for a day so tabs open offline.", size=12),
+        ft.Row([ft.FilledTonalButton("Refresh game data", icon=ft.Icons.REFRESH_ROUNDED, on_click=clear(False),
+                                     tooltip="Fetch the wiki, events and banners again"),
+                ft.OutlinedButton("Clear images", icon=ft.Icons.HIDE_IMAGE_ROUNDED, on_click=clear(True),
+                                  tooltip="Delete downloaded portraits and icons")],
+               wrap=True, spacing=8, run_spacing=8),
+        title="Storage", col={"xs": 12, "lg": 6})
+
+    about_card = card(ft.Row([
+        logo_badge(), ft.Column([ft.Text(f"{APP} {__version__}", size=15, weight=ft.FontWeight.W_600),
+                                 muted(f"Made by {APP_AUTHOR}. Free and open source. Not affiliated with HoYoverse; "
+                                       "Genshin Impact content and images belong to HoYoverse.", size=12)],
+                                spacing=2, expand=True)],
+        spacing=12, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+        ft.Row([ft.OutlinedButton("Source code", icon=ft.Icons.CODE_ROUNDED, url=APP_REPO),
+                ft.OutlinedButton("Report a bug", icon=ft.Icons.BUG_REPORT_ROUNDED, url=f"{APP_REPO}/issues/new"),
+                ft.OutlinedButton("Releases", icon=ft.Icons.NEW_RELEASES_ROUNDED, url=f"{APP_REPO}/releases")],
+               wrap=True, spacing=8, run_spacing=8),
+        title="About", col={"xs": 12, "lg": 6})
+
+    app.account_pick = account_pick
+    # PC: two cards to a row instead of one long column
+    return ft.Column([page_head(SETTINGS), ft.ResponsiveRow([auto_card, look_card, phone_card, data_card,
+                                                             storage_card, about_card],
+                                                            spacing=16, run_spacing=16)],
+                     spacing=16, horizontal_alignment=STRETCH)

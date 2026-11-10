@@ -8,13 +8,18 @@ import flet as ft
 from teyvat import db, wiki, wish
 from teyvat.gui import theme
 from teyvat.gui.app import WISHES
-from teyvat.gui.theme import STRETCH, STYLE
-from teyvat.gui.widgets import banner_tile, card, item_icon, muted, pity_color, pity_meter, pull_chip, skeleton
+from teyvat.gui.theme import ELEMENT_COLORS, STRETCH, STYLE
+from teyvat.gui.widgets import (banner_tile, card, item_icon, muted, pill_tabs, pity_color, pity_meter, pull_chip,
+                                skeleton)
 
 POOL_TITLES = {"character": "Character Event", "weapon": "Weapon Event", "standard": "Standard",
                "chronicled": "Chronicled", "beginner": "Beginner"}
+POOL_ICONS = {"character": ft.Icons.PERSON_ROUNDED, "weapon": ft.Icons.HARDWARE_ROUNDED,
+              "standard": ft.Icons.STAR_ROUNDED, "chronicled": ft.Icons.HISTORY_EDU_ROUNDED,
+              "beginner": ft.Icons.SCHOOL_ROUNDED}
+RERUN_TOP = 12  # the rerun tracker's first tab: the longest waits
 PRIMOS_PER_PULL = 160
-PLAN_BANNERS = {"character": "Character Event Wish", "weapon": "Weapon Event Wish"}  # wiki.BANNER_POOLS names
+HISTORY_CAP = 60  # chips a banner's history shows before "Show all"
 
 
 def build(app):
@@ -23,12 +28,13 @@ def build(app):
                                                            app.page_head)
     GOLD, PURPLE, _, _ = theme.accents()
 
-    url_field = ft.TextField(hint_text="Paste wish history link", border_radius=14, filled=True,
+    url_field = ft.TextField(hint_text="Wish link (Sync pastes it from the clipboard)" if mobile else "Paste wish history link",
+                             border_radius=14, filled=True,
                              prefix_icon=ft.Icons.LINK_ROUNDED)
     sync_status = muted("", visible=False)
     stats_view = ft.Column(spacing=16, horizontal_alignment=STRETCH)
 
-    view = {"ranks": "5", "order": "new"}  # which pulls the history shows, and in what order
+    view = {"ranks": "5", "order": "new", "full": set()}  # which pulls the history shows, in what order, uncapped pools
     banners_row = ft.ResponsiveRow([skeleton(1, height=150)], spacing=16, run_spacing=16,
                                    vertical_alignment=ft.CrossAxisAlignment.START)
     banners_card = card(banners_row, title="Current banner")
@@ -40,15 +46,14 @@ def build(app):
             data = wiki.banners(db.connect())
             live = wiki.current_banners(data, role and role["region"])
         except Exception:
-            banners_card.visible = reruns_card.visible = False
+            banners_card.visible = False
+            reruns_card.controls = [muted("Banner history needs paimon.moe; try again when online.")]
             page.update()
             return
         show_reruns(wiki.reruns(data, role and role["region"]))
         wiki.cache_images([wiki.banner_image(b) for _, b, _, _ in live]
                           + [wiki.icon_for(wiki.name_for(x)) for _, b, _, _ in live
                              for x in b.get("featured", [])[:6] + b.get("featuredRare", [])[:5]])
-        plan_state.update({name: end for name, _, _, end in live})
-        plan()
         banners_row.controls = [banner_tile(*t) for t in live]
         for b in banners_row.controls:  # two banners split the row in half instead of leaving a third empty
             b.col = {"xs": 12, "md": 12 if len(live) == 1 else 6, "xl": max(4, 12 // len(live))}
@@ -57,10 +62,28 @@ def build(app):
 
     # Rerun tracker: every banner 5★, longest wait first, like paimon.moe's banner history.
     reruns_grid = ft.ResponsiveRow([skeleton(1, height=150)], spacing=8, run_spacing=8)
-    reruns_card = card(muted("5★ characters by time since their last banner.", size=12), reruns_grid,
-                       title="Rerun tracker")
+    reruns_tabs = ft.Container()
+    reruns_card = ft.Column([muted("5★ characters by time since their last banner.", size=12), reruns_tabs,
+                             reruns_grid], spacing=12, horizontal_alignment=STRETCH, visible=False)
 
     def show_reruns(rows):
+        """Tabs: the longest waits, then one per element (from the wiki catalogue's cache, when there is one)."""
+        try:
+            element = {e["name"]: (e["filters"].get("character_vision") or [""])[0]
+                       for e in wiki.entries(db.connect(), "Characters")}
+        except Exception:
+            element = {}
+        tabs = {"top": rows[:RERUN_TOP], **{k: [r for r in rows if element.get(r["name"]) == k]
+                                            for k in ELEMENT_COLORS if element}}
+
+        def pick(key):
+            fill_reruns(tabs[key])
+            reruns_grid.update()
+        reruns_tabs.content = pill_tabs([("top", "Longest wait", ft.Icons.HOURGLASS_BOTTOM_ROUNDED)]
+                                        + [(k, k) for k, v in tabs.items() if k != "top" and v], pick)
+        fill_reruns(tabs["top"])
+
+    def fill_reruns(rows):
         now = datetime.datetime.now(datetime.timezone.utc)
 
         def when(r):
@@ -74,49 +97,12 @@ def build(app):
         for r in rows:
             text, color = when(r)
             reruns_grid.controls.append(ft.Container(ft.Row([
-                item_icon(r["name"], "Character", 40),
+                item_icon(r["name"], "Character", 48),
                 ft.Column([ft.Text(r["name"], size=13, weight=ft.FontWeight.W_600, no_wrap=True,
                                    overflow=ft.TextOverflow.ELLIPSIS),
                            ft.Text(text, size=12, color=color or ft.Colors.ON_SURFACE_VARIANT),
                            muted(f"{r['runs']} run{'s' * (r['runs'] != 1)}", size=11)], spacing=0, expand=True)],
                 spacing=10), col={"xs": 6, "sm": 4, "md": 3, "xl": 2}))
-
-    # Pull planner: odds of the featured 5★ from saved primos and fates, starting at the history's pity.
-    plan_state = {"pools": {}}  # wish.stats of the shown UID, plus each banner's end time by name
-    num_field = lambda name, width: ft.TextField(
-        label=name, width=width, dense=True, filled=True, border_radius=14, keyboard_type=ft.KeyboardType.NUMBER,
-        on_change=lambda e: (plan(), plan_card.update()))
-    primo_in, fate_in = num_field("Primogems", 140), num_field("Fates", 100)
-    plan_pool = ft.SegmentedButton(
-        selected=["character"], show_selected_icon=False, on_change=lambda e: (plan(reset=True), plan_card.update()),
-        segments=[ft.Segment("character", label="Character"), ft.Segment("weapon", label="Weapon")])
-    copies_pick = ft.Dropdown(label="Goal", dense=True, filled=True, border_radius=14, width=110,
-                              on_select=lambda e: (plan(), plan_card.update()))
-    guaranteed_box = ft.Checkbox(label="Guaranteed", on_change=lambda e: (plan(), plan_card.update()))
-    plan_odds = ft.Text("-", size=28, weight=ft.FontWeight.BOLD, color=GOLD)
-    plan_info = muted("", size=12)
-
-    def plan(reset=False):
-        """Recompute the odds; `reset` refills the goal options and the guarantee for the picked pool."""
-        pool = plan_pool.selected[0]
-        s = plan_state["pools"].get(pool, {})
-        if reset:
-            copies_pick.options = [ft.DropdownOption(str(i + 1), f"C{i}" if pool == "character" else f"R{i + 1}")
-                                   for i in range(7 if pool == "character" else 5)]
-            copies_pick.value, guaranteed_box.value = "1", s.get("guaranteed", False)
-        num = lambda f: int(t) if (t := (f.value or "").replace(",", "").strip()).isdigit() else 0
-        pulls, pity = num(fate_in) + num(primo_in) // PRIMOS_PER_PULL, s.get("pity", 0)
-        plan_odds.value = f"{wish.odds(pulls, pity, guaranteed_box.value, int(copies_pick.value), pool):.1%}"
-        end = plan_state.get(PLAN_BANNERS[pool])
-        days = (end - datetime.datetime.now(datetime.timezone.utc)).days if end else None
-        plan_info.value = f"{pulls:,} pulls from pity {pity}" + (f" · banner ends in {days} days" if days else "")
-
-    plan(reset=True)
-    plan_card = card(ft.Row([
-        ft.Row([plan_pool, primo_in, fate_in, copies_pick, guaranteed_box], wrap=True, spacing=12, run_spacing=12,
-               expand=True, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-        ft.Column([plan_odds, plan_info], spacing=0, horizontal_alignment=ft.CrossAxisAlignment.END),
-    ], wrap=phone, spacing=16, vertical_alignment=ft.CrossAxisAlignment.CENTER), title="Pull planner")
 
     def set_view(key):
         def handler(e):
@@ -132,7 +118,7 @@ def build(app):
                                                          icon=ft.Icons.ARROW_DOWNWARD_ROUNDED),
                                               ft.Segment("old", label=ft.Text("Oldest", no_wrap=True),
                                                          icon=ft.Icons.ARROW_UPWARD_ROUNDED)])
-    history_bar = ft.Row([muted("History", size=13), rank_pick, order_pick], wrap=True, spacing=12, run_spacing=8,
+    history_bar = ft.Row([rank_pick, order_pick], wrap=True, spacing=12, run_spacing=8,
                          vertical_alignment=ft.CrossAxisAlignment.CENTER)
 
     def pool_card(pool, s):
@@ -148,14 +134,20 @@ def build(app):
                   total_chip("4★", str(len(fours)), pct(len(fours)), PURPLE)]
         shown = {"5": fives, "4": s["four_stars"], "all": fives + s["four_stars"]}[view["ranks"]]
         shown = sorted(shown, key=lambda f: int(f["id"]), reverse=view["order"] == "new")
-        history = [pull_chip(f, hard) for f in shown]
+        # Hundreds of 4★ chips are slow to lay out (phones above all), so a long history opens capped.
+        more = len(shown) - HISTORY_CAP if pool not in view["full"] else 0
+        history = [pull_chip(f, hard) for f in (shown[:HISTORY_CAP] if more > 0 else shown)]
+        if more > 0:
+            history.append(ft.TextButton(f"Show all ({more:,} more)", on_click=lambda e: (view["full"].add(pool),
+                                                                                         refresh_stats())))
         label = {"5": "5★", "4": "4★", "all": "5★ and 4★"}[view["ranks"]]
         # Full-width card per banner; the 5★ history runs full length below (no inner scroll),
         # so the card grows with the banner's pulls.
         return card(
             ft.Row([
                 ft.Column([
-                    ft.Text(POOL_TITLES[pool], size=16, weight=ft.FontWeight.W_600),
+                    ft.Row([ft.Icon(POOL_ICONS[pool], size=18, color=ft.Colors.PRIMARY),
+                            ft.Text(POOL_TITLES[pool], size=16, weight=ft.FontWeight.W_600)], spacing=8, tight=True),
                     ft.Container(ft.Text("Next 5★ guaranteed", size=12, color=GOLD,
                                          weight=ft.FontWeight.W_600),
                                  padding=ft.Padding.symmetric(horizontal=6, vertical=1), border_radius=6,
@@ -199,9 +191,6 @@ def build(app):
         uid_pick.visible = len(uids) > 1  # a picker with one choice is just noise
         wish_totals.controls = []
         if not uids:
-            plan_state["pools"] = {}
-            plan(reset=True)
-            plan_card.update()
             wish_totals.update()
             stats_view.controls = [card(
                 ft.Icon(ft.Icons.AUTO_AWESOME_ROUNDED, size=40, color=ft.Colors.PRIMARY),
@@ -216,17 +205,10 @@ def build(app):
         uid_pick.value = uid
         rows = db.wishes(conn, uid)
         pools = wish.stats(rows, wish.load_standard())
-        if not primo_in.value and (saved := db.primogem_log(conn, uid, limit=1)):
-            primo_in.value = str(saved[0]["count"])
-        plan_state["pools"] = pools
-        plan(reset=True)
-        plan_card.update()
         wish_totals.controls = overview(rows, pools)
         wish_totals.update()
-        stats_view.controls = [
-            history_bar,
-            ft.ResponsiveRow([pool_card(p, s) for p, s in pools.items()], spacing=16, run_spacing=16),
-        ]
+        # every banner stacked, one full-width card each, so History needs no second tab bar
+        stats_view.controls = [history_bar, *(pool_card(p, st) for p, st in pools.items())]
         stats_view.update()
 
     uid_pick = ft.Dropdown(label="Account", leading_icon=ft.Icons.PERSON_ROUNDED, border_radius=14,
@@ -237,10 +219,14 @@ def build(app):
         sync_status.update()
 
     def do_sync():
-        url = url_field.value.strip()
-        if not url:
-            if mobile:
-                return "Paste a wish history link, or import a file exported from the PC app."
+        text = url_field.value.strip()
+        if text:  # the copied text may carry more than the link (the in-game error page)
+            url = wish.extract_gacha_url(text.encode())
+            if not url:
+                return "That is not a wish history link (it needs authkey=). See How to get the link."
+        elif mobile:
+            return "Copy your wish history link first (How to get the link), then tap Sync."
+        else:
             url = wish.locate_gacha_url()
         added = wish.sync(db.connect(), url, log=log)
         refresh_stats()
@@ -280,6 +266,38 @@ def build(app):
 
     # Desktop finds the link by itself, so the field is tucked behind a menu item; mobile has no other way in.
     url_field.visible = mobile
+    clipboard = ft.Clipboard()
+    sync_click = guarded(do_sync)
+
+    async def mobile_sync(e):
+        """Phones: an empty field is filled from the clipboard, so copying the link in game is the whole step."""
+        if not url_field.value.strip():
+            text = await clipboard.get() or ""
+            if wish.extract_gacha_url(text.encode()):
+                url_field.value = text.strip()
+                url_field.update()
+        sync_click(e)
+
+    def link_guide(e):
+        steps = [
+            "Open Genshin Impact, then Wish > History, and wait until the list loads.",
+            "Turn off Wi-Fi and mobile data.",
+            "Tap Refresh / Retry on the history page. An error page shows a long link.",
+            "Long-press the link, Select all, then Copy.",
+            "Turn your internet back on, come back here and tap Sync. Teyvault reads the link from the clipboard.",
+        ]
+        page.show_dialog(ft.AlertDialog(
+            title=ft.Text("Get your wish history link"),
+            content=ft.Column([
+                *[ft.Row([ft.Container(ft.Text(str(i), size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.ON_PRIMARY),
+                                       width=24, height=24, border_radius=12, alignment=ft.Alignment.CENTER,
+                                       bgcolor=ft.Colors.PRIMARY),
+                          ft.Text(t, size=14, expand=True)], spacing=12, vertical_alignment=ft.CrossAxisAlignment.START)
+                  for i, t in enumerate(steps, 1)],
+                muted("The link works for about a day; repeat these steps for the next sync. Teyvault only reads your "
+                      "wish history with it, through the same page the game uses.", size=12),
+            ], spacing=12, tight=True, scroll=ft.ScrollMode.AUTO, width=min(440, (page.width or 400) - 48)),
+            actions=[ft.TextButton("Got it", on_click=lambda e: page.pop_dialog())]))
 
     def show_url_field(e):
         url_field.visible = True
@@ -300,26 +318,36 @@ def build(app):
             ft.PopupMenuItem("Export as UIGF JSON", icon=ft.Icons.SAVE_ALT_ROUNDED, on_click=do_export),
             ft.PopupMenuItem("Export as Excel", icon=ft.Icons.TABLE_VIEW_ROUNDED, on_click=do_export_xlsx),
         ])
-    sync_steps = ("Paste a wish history link and press Sync, or receive your history from Teyvault on PC "
-                  "(Settings > Phone sync)." if mobile else
+    sync_steps = ("Copy your wish history link in game, then tap Sync (How to get the link), or receive your "
+                  "history from Teyvault on PC (Settings > Phone sync)." if mobile else
                   "Open Wish > History in game once, then press Sync. Teyvault finds the link itself; it expires "
                   "after about a day.")
     uid_pick.width = None if phone else 170  # phones give it its own line, too narrow for one row
     # Companion card beside the head, one row like the Dashboard's redeem card; the how-to is the Sync tooltip.
     # Fixed width on PC like the redeem card: unexpanded in the head row, its stretched column would be unbounded.
     sync_card = card(
-        ft.Row([ft.FilledButton("Sync", icon=ft.Icons.SYNC_ROUNDED, on_click=guarded(do_sync), tooltip=sync_steps,
-                                 expand=True),
+        ft.Row([ft.FilledButton("Sync", icon=ft.Icons.SYNC_ROUNDED, on_click=mobile_sync if mobile else sync_click,
+                                 tooltip=None if mobile else sync_steps, expand=True),
                 files_menu, *([] if phone else [uid_pick])], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-        *([uid_pick] if phone else []), url_field, sync_status, padding=ft.Padding.symmetric(horizontal=16, vertical=16),
+        *([uid_pick] if phone else []), url_field,
+        *([ft.TextButton("How to get the link", icon=ft.Icons.HELP_OUTLINE_ROUNDED, on_click=link_guide)] if mobile else []),
+        sync_status, padding=ft.Padding.symmetric(horizontal=16, vertical=16),
         width=None if phone else 420)
+
+    # History | Rerun tracker: one page-level tab bar, the picked one shown in place of the other.
+    def pick_section(key):
+        stats_view.visible, reruns_card.visible = key == "history", key == "reruns"
+        stats_view.update()
+        reruns_card.update()
+    section_tabs = pill_tabs([("history", "History", ft.Icons.HISTORY_ROUNDED),
+                              ("reruns", "Rerun tracker", ft.Icons.UPDATE_ROUNDED)], pick_section)
 
     app.load_banners, app.refresh_stats, app.uid_pick = load_banners, refresh_stats, uid_pick
     app.do_import, app.do_export, app.do_export_xlsx = do_import, do_export, do_export_xlsx
     return ft.Column([
         page_head(WISHES, sync_card, sub=wish_totals, inline=True),
         banners_card,
-        plan_card,
+        section_tabs,
         stats_view,
         reruns_card,
     ], spacing=16, horizontal_alignment=STRETCH)

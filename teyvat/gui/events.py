@@ -66,9 +66,12 @@ def build(app):
                 page.update()
     if not phone:
         calendar_body.on_size_change = sized
-    calendar_card = card(ft.Row([month_label, ft.Container(expand=True), month_nav, mode_pick],
+    # Phones: month, arrows and the view toggle don't fit one line, so the toggle sits beside the hint.
+    calendar_card = card(ft.Row([month_label, ft.Container(expand=True), month_nav, *[mode_pick] * (not phone)],
                                 vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                         calendar_hint, calendar_body, title="Events", expand=None if phone else 2)
+                         ft.Row([ft.Container(calendar_hint, expand=True), mode_pick],
+                                vertical_alignment=ft.CrossAxisAlignment.CENTER) if phone else calendar_hint,
+                         calendar_body, title="Events", expand=None if phone else 2)
     # PC: the view sits outside the page scroll (like the Dashboard), so both cards stretch to the window's
     # height; the grid's weeks share it and the details scroll inside their card.
     event_body = ft.Column([skeleton(3, height=40)], spacing=8, horizontal_alignment=STRETCH,
