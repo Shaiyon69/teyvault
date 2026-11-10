@@ -1,20 +1,32 @@
-# Push a tag like v1.0.0 to build the Windows installer and Android APK and attach them
-# to a GitHub Release. iOS is left out: it needs an Apple developer account to sign.
+# Push a tag like v1.0.0 to build the Windows installer and Android APK and publish them as the
+# teyvault-v* release on Shaiyon69/Skibidevs: binaries ship only from the website, never from this repo.
+# Run it by hand with a tag to (re)build an existing release. iOS is left out: it needs an Apple developer
+# account to sign.
+# SKIBIDEVS_TOKEN: fine-grained token with Contents read/write on Shaiyon69/Skibidevs only.
 name: release
 
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to release, e.g. v1.6.0
+        required: true
 
 permissions:
-  contents: write
+  contents: read
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -37,6 +49,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -48,17 +62,25 @@ jobs:
           name: android
           path: dist/Teyvault.apk
 
-  release:
-    if: startsWith(github.ref, 'refs/tags/')
+  publish:
     needs: [windows, android]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
+          path: assets
           merge-multiple: true
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            Teyvault-Setup.exe
-            Teyvault.apk
-          generate_release_notes: true
+      # A release written by hand keeps its notes; the builds replace any old assets.
+      - name: Publish Skibidevs release
+        env:
+          GH_TOKEN: ${{ secrets.SKIBIDEVS_TOKEN }}
+          GH_REPO: Shaiyon69/Skibidevs
+        run: |
+          test -n "$GH_TOKEN" || { echo "::error::Set the SKIBIDEVS_TOKEN secret"; exit 1; }
+          if gh release view "teyvault-$TAG" >/dev/null 2>&1; then
+            gh release upload "teyvault-$TAG" assets/* --clobber
+          else
+            gh release create "teyvault-$TAG" assets/* --title "Teyvault ${TAG#v}" --notes "Changes: https://github.com/Shaiyon69/teyvault/commits/$TAG"
+          fi
+          # The site refreshes its download list on this event.
+          gh api "repos/$GH_REPO/dispatches" -f event_type=app-released

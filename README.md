@@ -9,8 +9,7 @@
 Teyvault claims your daily HoYoLAB check-in, redeems promo codes and tracks every wish with pity and 50/50 stats.
 One app for PC and phone. Free and open source, no ads.
 
-[**Download for Windows**](https://github.com/Shaiyon69/teyvault/releases/latest/download/Teyvault-Setup.exe) ·
-[**Android APK**](https://github.com/Shaiyon69/teyvault/releases/latest/download/Teyvault.apk) ·
+[**Download for Windows and Android**](https://shaiyon69.github.io/Skibidevs/apptic/?app=teyvault) ·
 [Website](https://shaiyon69.github.io/teyvault/)
 
 <sub>Windows 10/11 · Android · Global servers (America, Europe, Asia, TW/HK/MO)</sub>
@@ -33,7 +32,6 @@ Teyvault reads your wish link from the game's cache, pages your whole history an
 
 - Pity for every banner, including the second character banner
 - 50/50 record, guarantee status and average 5★ pity
-- Pull planner: your odds of the featured 5★ from your primogems and fates
 - Rerun tracker: how long each limited 5★ has waited since their last banner
 - UIGF v2–v4 and Excel import/export, paimon.moe sheets too
 
@@ -154,7 +152,7 @@ Teyvault only does what the official HoYoLAB pages do, at the same pace.
 
 ## Install
 
-Download from the [latest release](https://github.com/Shaiyon69/teyvault/releases/latest):
+Download from [Skibidevs](https://shaiyon69.github.io/Skibidevs/apptic/?app=teyvault):
 
 - **Windows**: `Teyvault-Setup.exe`. Run it and click through; no admin rights needed. Windows SmartScreen may warn because the installer isn't code-signed: click *More info* then *Run anyway*.
 - **Android**: `Teyvault.apk`. Open it on your phone and allow installing from your browser when asked.
@@ -204,7 +202,7 @@ teyvault wish stats # CLI
 python -m unittest discover -s tests
 ```
 
-Package mobile with `flet build apk | ipa`. Pushing a `v*` tag builds the Windows installer and APK and publishes them as a GitHub Release (`.github/workflows/release.yml`).
+Package mobile with `flet build apk | ipa`. Pushing a `v*` tag builds the Windows installer and APK and publishes them as the `teyvault-v*` release on [Skibidevs](https://github.com/Shaiyon69/Skibidevs/releases) (`.github/workflows/release.yml`, needs the `SKIBIDEVS_TOKEN` secret).
 
 ---
 
