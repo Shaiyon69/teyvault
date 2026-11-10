@@ -36,6 +36,8 @@ exclude = ["tests", "build", "dist", ".github", "installer.iss", "*.egg-info"]
 [tool.flet.ios.info]
 NSLocalNetworkUsageDescription = "Teyvault receives your wish history from Teyvault on your PC over Wi-Fi."
 
-# Flet 1.0.3 overrides jni to 1.0.0, but jni_flutter 1.0.4+ needs jni ^1.1.0 and breaks the APK build.
+# Flet 1.0.3 overrides jni to 1.0.0, but jni_flutter 1.0.4+ and shared_preferences_android 2.5+ need jni ^1.1.0
+# and break the APK build. Lift these pins when Flet moves to jni 1.1.
 [tool.flet.flutter.pubspec.dependency_overrides]
 jni_flutter = "1.0.3"
+shared_preferences_android = "2.4.28"
